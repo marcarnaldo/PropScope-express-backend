@@ -1,0 +1,1255 @@
+{
+  "homeTeam": "Indiana Pacers",
+  "awayTeam": "Chicago Bulls",
+  "props": {
+    "T.J. McConnell": {
+      "assists": {
+        "line": 4.5,
+        "siaOdds": {
+          "over": -125,
+          "under": -105
+        },
+        "fdOdds": {
+          "over": -113,
+          "under": -113
+        },
+        "siaOddsNoVig": {
+          "over": 0.5203045685279188,
+          "under": 0.4796954314720812
+        },
+        "fdOddsNoVig": {
+          "over": 0.5,
+          "under": 0.5
+        },
+        "ev": {
+          "over": -10,
+          "under": -2.3809523809523867
+        }
+      },
+      "points": {
+        "line": 8.5,
+        "siaOdds": {
+          "over": -118,
+          "under": -110
+        },
+        "fdOdds": {
+          "over": -111,
+          "under": -115
+        },
+        "siaOddsNoVig": {
+          "over": 0.5082034454470877,
+          "under": 0.49179655455291227
+        },
+        "fdOddsNoVig": {
+          "over": 0.4958445875753168,
+          "under": 0.5041554124246831
+        },
+        "ev": {
+          "over": -8.39481348184826,
+          "under": -5.338760553803162
+        }
+      }
+    },
+    "Pascal Siakam": {
+      "assists": {
+        "line": 4.5,
+        "siaOdds": {
+          "over": 115,
+          "under": -150
+        },
+        "fdOdds": {
+          "over": 134,
+          "under": -172
+        },
+        "siaOddsNoVig": {
+          "over": 0.47131147540983603,
+          "under": 0.5286885245901639
+        },
+        "fdOddsNoVig": {
+          "over": 0.4752268697194117,
+          "under": 0.5247731302805883
+        },
+        "ev": {
+          "over": 2.17377698967352,
+          "under": -20.79552171343138
+        }
+      },
+      "points": {
+        "line": 24.5,
+        "siaOdds": {
+          "over": -118,
+          "under": -110
+        },
+        "fdOdds": {
+          "over": -118,
+          "under": -108
+        },
+        "siaOddsNoVig": {
+          "over": 0.5082034454470877,
+          "under": 0.49179655455291227
+        },
+        "fdOddsNoVig": {
+          "over": 0.510397604391948,
+          "under": 0.4896023956080519
+        },
+        "ev": {
+          "over": -5.706205290301135,
+          "under": -2.560457343355381
+        }
+      },
+      "points_assists": {
+        "line": 29.5,
+        "siaOdds": {
+          "over": -105,
+          "under": -130
+        },
+        "fdOdds": {
+          "over": -104,
+          "under": -128
+        },
+        "siaOddsNoVig": {
+          "over": 0.4753937007874017,
+          "under": 0.5246062992125985
+        },
+        "fdOddsNoVig": {
+          "over": 0.47591522157996147,
+          "under": 0.5240847784200385
+        },
+        "ev": {
+          "over": -7.083218643912289,
+          "under": -15.799614643545276
+        }
+      },
+      "points_rebounds": {
+        "line": 32.5,
+        "siaOdds": {
+          "over": -110,
+          "under": -118
+        },
+        "fdOdds": {
+          "over": -106,
+          "under": -120
+        },
+        "siaOddsNoVig": {
+          "over": 0.49179655455291227,
+          "under": 0.5082034454470877
+        },
+        "fdOddsNoVig": {
+          "over": 0.48542880932556204,
+          "under": 0.5145711906744379
+        },
+        "ev": {
+          "over": -7.327227310574515,
+          "under": -10.319084378836841
+        }
+      },
+      "points_rebounds_assists": {
+        "line": 36.5,
+        "siaOdds": {
+          "over": -118,
+          "under": -110
+        },
+        "fdOdds": {
+          "over": -113,
+          "under": -113
+        },
+        "siaOddsNoVig": {
+          "over": 0.5082034454470877,
+          "under": 0.49179655455291227
+        },
+        "fdOddsNoVig": {
+          "over": 0.5,
+          "under": 0.5
+        },
+        "ev": {
+          "over": -7.6271186440678,
+          "under": -4.545454545454547
+        }
+      },
+      "rebounds": {
+        "line": 7.5,
+        "siaOdds": {
+          "over": -110,
+          "under": -120
+        },
+        "fdOdds": {
+          "over": 114,
+          "under": -146
+        },
+        "siaOddsNoVig": {
+          "over": 0.48987854251012153,
+          "under": 0.5101214574898786
+        },
+        "fdOddsNoVig": {
+          "over": 0.47301308865200375,
+          "under": 0.5269869113479962
+        },
+        "ev": {
+          "over": -9.69750125734474,
+          "under": -13.280933747132643
+        }
+      },
+      "rebounds_assists": {
+        "line": 11.5,
+        "siaOdds": {
+          "over": -130,
+          "under": 100
+        },
+        "fdOdds": {
+          "over": -102,
+          "under": -125
+        },
+        "siaOddsNoVig": {
+          "over": 0.5306122448979592,
+          "under": 0.4693877551020409
+        },
+        "fdOddsNoVig": {
+          "over": 0.47614107883817425,
+          "under": 0.5238589211618258
+        },
+        "ev": {
+          "over": -15.759655282476857,
+          "under": -4.77178423236515
+        }
+      },
+      "threes": {
+        "line": 1.5,
+        "siaOdds": {
+          "over": -175,
+          "under": 135
+        },
+        "fdOdds": {
+          "over": -174,
+          "under": 136
+        },
+        "siaOddsNoVig": {
+          "over": 0.5255591054313098,
+          "under": 0.4744408945686901
+        },
+        "fdOddsNoVig": {
+          "over": 0.524256970687366,
+          "under": 0.47574302931263407
+        },
+        "ev": {
+          "over": -17.616761749128205,
+          "under": 23.200388111530998
+        }
+      }
+    },
+    "Coby White": {
+      "assists": {
+        "line": 4.5,
+        "siaOdds": {
+          "over": -135,
+          "under": 100
+        },
+        "fdOdds": {
+          "over": -128,
+          "under": 100
+        },
+        "siaOddsNoVig": {
+          "over": 0.5346534653465347,
+          "under": 0.4653465346534653
+        },
+        "fdOddsNoVig": {
+          "over": 0.5289256198347108,
+          "under": 0.4710743801652893
+        },
+        "ev": {
+          "over": -7.927762473217015,
+          "under": 5.785123966942152
+        }
+      },
+      "rebounds": {
+        "line": 3.5,
+        "siaOdds": {
+          "over": -125,
+          "under": -105
+        },
+        "fdOdds": {
+          "over": 102,
+          "under": -130
+        },
+        "siaOddsNoVig": {
+          "over": 0.5203045685279188,
+          "under": 0.4796954314720812
+        },
+        "fdOddsNoVig": {
+          "over": 0.4718423169750604,
+          "under": 0.5281576830249397
+        },
+        "ev": {
+          "over": -15.068382944489123,
+          "under": -7.878404781059636
+        }
+      },
+      "rebounds_assists": {
+        "line": 8.5,
+        "siaOdds": {
+          "over": -118,
+          "under": -110
+        },
+        "fdOdds": {
+          "over": 106,
+          "under": -136
+        },
+        "siaOddsNoVig": {
+          "over": 0.5082034454470877,
+          "under": 0.49179655455291227
+        },
+        "fdOddsNoVig": {
+          "over": 0.4717151908281792,
+          "under": 0.5282848091718207
+        },
+        "ev": {
+          "over": -12.852617287675372,
+          "under": -9.945281750983973
+        }
+      },
+      "threes": {
+        "line": 2.5,
+        "siaOdds": {
+          "over": -150,
+          "under": 110
+        },
+        "fdOdds": {
+          "over": -136,
+          "under": 108
+        },
+        "siaOddsNoVig": {
+          "over": 0.5338983050847458,
+          "under": 0.46610169491525427
+        },
+        "fdOddsNoVig": {
+          "over": 0.5260339184766438,
+          "under": 0.4739660815233561
+        },
+        "ev": {
+          "over": -12.327680253892702,
+          "under": 10.467122880095204
+        }
+      }
+    },
+    "Andrew Nembhard": {
+      "assists": {
+        "line": 7.5,
+        "siaOdds": {
+          "over": -135,
+          "under": 100
+        },
+        "fdOdds": {
+          "over": -115,
+          "under": -111
+        },
+        "siaOddsNoVig": {
+          "over": 0.5346534653465347,
+          "under": 0.4653465346534653
+        },
+        "fdOddsNoVig": {
+          "over": 0.5041554124246831,
+          "under": 0.4958445875753168
+        },
+        "ev": {
+          "over": -12.239613392740353,
+          "under": 0.8310824849366157
+        }
+      },
+      "points": {
+        "line": 16.5,
+        "siaOdds": {
+          "over": -118,
+          "under": -115
+        },
+        "fdOdds": {
+          "over": -104,
+          "under": -122
+        },
+        "siaOddsNoVig": {
+          "over": 0.5029738302934179,
+          "under": 0.4970261697065821
+        },
+        "fdOddsNoVig": {
+          "over": 0.48124062031015497,
+          "under": 0.5187593796898449
+        },
+        "ev": {
+          "over": -11.092834552869682,
+          "under": -10.028927507231906
+        }
+      },
+      "points_assists": {
+        "line": 24.5,
+        "siaOdds": {
+          "over": -115,
+          "under": -115
+        },
+        "fdOdds": {
+          "over": -108,
+          "under": -122
+        },
+        "siaOddsNoVig": {
+          "over": 0.5,
+          "under": 0.5
+        },
+        "fdOddsNoVig": {
+          "over": 0.48581617766250607,
+          "under": 0.5141838223374939
+        },
+        "ev": {
+          "over": -9.173497219618426,
+          "under": -9.173497219618426
+        }
+      },
+      "points_rebounds": {
+        "line": 19.5,
+        "siaOdds": {
+          "over": -118,
+          "under": -110
+        },
+        "fdOdds": {
+          "over": -106,
+          "under": -120
+        },
+        "siaOddsNoVig": {
+          "over": 0.5082034454470877,
+          "under": 0.49179655455291227
+        },
+        "fdOddsNoVig": {
+          "over": 0.48542880932556204,
+          "under": 0.5145711906744379
+        },
+        "ev": {
+          "over": -10.319084378836841,
+          "under": -7.327227310574515
+        }
+      },
+      "points_rebounds_assists": {
+        "line": 27.5,
+        "siaOdds": {
+          "over": -118,
+          "under": -115
+        },
+        "fdOdds": {
+          "over": -108,
+          "under": -118
+        },
+        "siaOddsNoVig": {
+          "over": 0.5029738302934179,
+          "under": 0.4970261697065821
+        },
+        "fdOddsNoVig": {
+          "over": 0.4896023956080519,
+          "under": 0.510397604391948
+        },
+        "ev": {
+          "over": -9.548031997834471,
+          "under": -8.465639081972895
+        }
+      },
+      "rebounds_assists": {
+        "line": 10.5,
+        "siaOdds": {
+          "over": -135,
+          "under": 100
+        },
+        "fdOdds": {
+          "over": -118,
+          "under": -108
+        },
+        "siaOddsNoVig": {
+          "over": 0.5346534653465347,
+          "under": 0.4653465346534653
+        },
+        "fdOddsNoVig": {
+          "over": 0.510397604391948,
+          "under": 0.4896023956080519
+        },
+        "ev": {
+          "over": -11.153009605846087,
+          "under": 2.0795208783896015
+        }
+      },
+      "threes": {
+        "line": 1.5,
+        "siaOdds": {
+          "over": -135,
+          "under": 100
+        },
+        "fdOdds": {
+          "over": -138,
+          "under": 108
+        },
+        "siaOddsNoVig": {
+          "over": 0.5346534653465347,
+          "under": 0.4653465346534653
+        },
+        "fdOddsNoVig": {
+          "over": 0.5275694750771945,
+          "under": 0.47243052492280546
+        },
+        "ev": {
+          "over": -8.163832116192062,
+          "under": 5.513895015438905
+        }
+      }
+    },
+    "Nikola Vucevic": {
+      "points": {
+        "line": 16.5,
+        "siaOdds": {
+          "over": -130,
+          "under": -105
+        },
+        "fdOdds": {
+          "over": -113,
+          "under": -113
+        },
+        "siaOddsNoVig": {
+          "over": 0.5246062992125985,
+          "under": 0.4753937007874017
+        },
+        "fdOddsNoVig": {
+          "over": 0.5,
+          "under": 0.5
+        },
+        "ev": {
+          "over": -11.538461538461533,
+          "under": -2.3809523809523867
+        }
+      },
+      "points_rebounds": {
+        "line": 25.5,
+        "siaOdds": {
+          "over": -125,
+          "under": -105
+        },
+        "fdOdds": {
+          "over": -113,
+          "under": -113
+        },
+        "siaOddsNoVig": {
+          "over": 0.5203045685279188,
+          "under": 0.4796954314720812
+        },
+        "fdOddsNoVig": {
+          "over": 0.5,
+          "under": 0.5
+        },
+        "ev": {
+          "over": -10,
+          "under": -2.3809523809523867
+        }
+      },
+      "rebounds": {
+        "line": 8.5,
+        "siaOdds": {
+          "over": -140,
+          "under": 105
+        },
+        "fdOdds": {
+          "over": -120,
+          "under": -106
+        },
+        "siaOddsNoVig": {
+          "over": 0.5324675324675324,
+          "under": 0.46753246753246747
+        },
+        "fdOddsNoVig": {
+          "over": 0.5145711906744379,
+          "under": 0.48542880932556204
+        },
+        "ev": {
+          "over": -11.78779588438207,
+          "under": 5.487094088259774
+        }
+      },
+      "threes": {
+        "line": 1.5,
+        "siaOdds": {
+          "over": 120,
+          "under": -160
+        },
+        "fdOdds": {
+          "over": 102,
+          "under": -130
+        },
+        "siaOddsNoVig": {
+          "over": 0.4698795180722891,
+          "under": 0.5301204819277109
+        },
+        "fdOddsNoVig": {
+          "over": 0.4718423169750604,
+          "under": 0.5281576830249397
+        },
+        "ev": {
+          "over": 3.8053097345132936,
+          "under": -23.325623491552683
+        }
+      }
+    },
+    "Josh Giddey": {
+      "assists": {
+        "line": 7.5,
+        "siaOdds": {
+          "over": -118,
+          "under": -110
+        },
+        "fdOdds": {
+          "over": 104,
+          "under": -132
+        },
+        "siaOddsNoVig": {
+          "over": 0.5082034454470877,
+          "under": 0.49179655455291227
+        },
+        "fdOddsNoVig": {
+          "over": 0.4725791287997492,
+          "under": 0.5274208712002507
+        },
+        "ev": {
+          "over": -12.693008408181933,
+          "under": -9.780348138229698
+        }
+      },
+      "points_rebounds_assists": {
+        "line": 32.5,
+        "siaOdds": {
+          "over": -125,
+          "under": -105
+        },
+        "fdOdds": {
+          "over": -104,
+          "under": -122
+        },
+        "siaOddsNoVig": {
+          "over": 0.5203045685279188,
+          "under": 0.4796954314720812
+        },
+        "fdOddsNoVig": {
+          "over": 0.48124062031015497,
+          "under": 0.5187593796898449
+        },
+        "ev": {
+          "over": -13.376688344172107,
+          "under": -6.043497939445949
+        }
+      },
+      "rebounds": {
+        "line": 7.5,
+        "siaOdds": {
+          "over": -110,
+          "under": -120
+        },
+        "fdOdds": {
+          "over": -102,
+          "under": -125
+        },
+        "siaOddsNoVig": {
+          "over": 0.48987854251012153,
+          "under": 0.5101214574898786
+        },
+        "fdOddsNoVig": {
+          "over": 0.47614107883817425,
+          "under": 0.5238589211618258
+        },
+        "ev": {
+          "over": -9.100339494530374,
+          "under": -12.707468879668049
+        }
+      },
+      "threes": {
+        "line": 1.5,
+        "siaOdds": {
+          "over": 100,
+          "under": -135
+        },
+        "fdOdds": {
+          "over": -104,
+          "under": -122
+        },
+        "siaOddsNoVig": {
+          "over": 0.4653465346534653,
+          "under": 0.5346534653465347
+        },
+        "fdOddsNoVig": {
+          "over": 0.48124062031015497,
+          "under": 0.5187593796898449
+        },
+        "ev": {
+          "over": -3.751875937969011,
+          "under": -16.22848461267673
+        }
+      }
+    },
+    "Bennedict Mathurin": {
+      "points": {
+        "line": 15.5,
+        "siaOdds": {
+          "over": -130,
+          "under": -105
+        },
+        "fdOdds": {
+          "over": -132,
+          "under": 104
+        },
+        "siaOddsNoVig": {
+          "over": 0.5246062992125985,
+          "under": 0.4753937007874017
+        },
+        "fdOddsNoVig": {
+          "over": 0.5274208712002507,
+          "under": 0.4725791287997492
+        },
+        "ev": {
+          "over": -6.687076633801794,
+          "under": 2.9726462819537005
+        }
+      },
+      "rebounds": {
+        "line": 4.5,
+        "siaOdds": {
+          "over": -110,
+          "under": -120
+        },
+        "fdOdds": {
+          "over": -113,
+          "under": -113
+        },
+        "siaOddsNoVig": {
+          "over": 0.48987854251012153,
+          "under": 0.5101214574898786
+        },
+        "fdOddsNoVig": {
+          "over": 0.5,
+          "under": 0.5
+        },
+        "ev": {
+          "over": -4.545454545454547,
+          "under": -8.333333333333329
+        }
+      },
+      "threes": {
+        "line": 1.5,
+        "siaOdds": {
+          "over": -145,
+          "under": 110
+        },
+        "fdOdds": {
+          "over": -156,
+          "under": 122
+        },
+        "siaOddsNoVig": {
+          "over": 0.5304878048780488,
+          "under": 0.4695121951219513
+        },
+        "fdOddsNoVig": {
+          "over": 0.5258107615692942,
+          "under": 0.47418923843070565
+        },
+        "ev": {
+          "over": -11.15611270036063,
+          "under": 10.420259929551783
+        }
+      }
+    },
+    "Kevin Huerter": {
+      "points": {
+        "line": 7.5,
+        "siaOdds": {
+          "over": 100,
+          "under": -130
+        },
+        "fdOdds": {
+          "over": -120,
+          "under": -106
+        },
+        "siaOddsNoVig": {
+          "over": 0.4693877551020409,
+          "under": 0.5306122448979592
+        },
+        "fdOddsNoVig": {
+          "over": 0.5145711906744379,
+          "under": 0.48542880932556204
+        },
+        "ev": {
+          "over": 2.914238134887583,
+          "under": -8.96048164990713
+        }
+      },
+      "points_rebounds_assists": {
+        "line": 12.5,
+        "siaOdds": {
+          "over": 100,
+          "under": -135
+        },
+        "fdOdds": {
+          "over": -111,
+          "under": -115
+        },
+        "siaOddsNoVig": {
+          "over": 0.4653465346534653,
+          "under": 0.5346534653465347
+        },
+        "fdOddsNoVig": {
+          "over": 0.4958445875753168,
+          "under": 0.5041554124246831
+        },
+        "ev": {
+          "over": -0.8310824849366439,
+          "under": -13.686312533185593
+        }
+      },
+      "threes": {
+        "line": 1.5,
+        "siaOdds": {
+          "over": 140,
+          "under": -190
+        },
+        "fdOdds": {
+          "over": 112,
+          "under": -142
+        },
+        "siaOddsNoVig": {
+          "over": 0.47099767981438523,
+          "under": 0.5290023201856149
+        },
+        "fdOddsNoVig": {
+          "over": 0.47377989092434625,
+          "under": 0.5262201090756539
+        },
+        "ev": {
+          "over": 13.70717382184309,
+          "under": -27.686227174705046
+        }
+      }
+    },
+    "Jarace Walker": {
+      "points": {
+        "line": 11.5,
+        "siaOdds": {
+          "over": -105,
+          "under": -125
+        },
+        "fdOdds": {
+          "over": -108,
+          "under": -118
+        },
+        "siaOddsNoVig": {
+          "over": 0.4796954314720812,
+          "under": 0.5203045685279188
+        },
+        "fdOddsNoVig": {
+          "over": 0.4896023956080519,
+          "under": 0.510397604391948
+        },
+        "ev": {
+          "over": -4.41096085747558,
+          "under": -11.871568790550647
+        }
+      },
+      "points_rebounds_assists": {
+        "line": 19.5,
+        "siaOdds": {
+          "over": -110,
+          "under": -118
+        },
+        "fdOdds": {
+          "over": -111,
+          "under": -115
+        },
+        "siaOddsNoVig": {
+          "over": 0.49179655455291227,
+          "under": 0.5082034454470877
+        },
+        "fdOddsNoVig": {
+          "over": 0.4958445875753168,
+          "under": 0.5041554124246831
+        },
+        "ev": {
+          "over": -5.338760553803162,
+          "under": -8.39481348184826
+        }
+      },
+      "rebounds": {
+        "line": 5.5,
+        "siaOdds": {
+          "over": -105,
+          "under": -130
+        },
+        "fdOdds": {
+          "over": 112,
+          "under": -142
+        },
+        "siaOddsNoVig": {
+          "over": 0.4753937007874017,
+          "under": 0.5246062992125985
+        },
+        "fdOddsNoVig": {
+          "over": 0.47377989092434625,
+          "under": 0.5262201090756539
+        },
+        "ev": {
+          "over": -7.500116533818122,
+          "under": -16.177403913384893
+        }
+      },
+      "threes": {
+        "line": 1.5,
+        "siaOdds": {
+          "over": -145,
+          "under": 110
+        },
+        "fdOdds": {
+          "over": -140,
+          "under": 110
+        },
+        "siaOddsNoVig": {
+          "over": 0.5304878048780488,
+          "under": 0.4695121951219513
+        },
+        "fdOddsNoVig": {
+          "over": 0.5268817204301075,
+          "under": 0.4731182795698925
+        },
+        "ev": {
+          "over": -10.975157582499072,
+          "under": 10.645161290322577
+        }
+      }
+    },
+    "Ayo Dosunmu": {
+      "points": {
+        "line": 12.5,
+        "siaOdds": {
+          "over": -120,
+          "under": -110
+        },
+        "fdOdds": {
+          "over": -111,
+          "under": -115
+        },
+        "siaOddsNoVig": {
+          "over": 0.5101214574898786,
+          "under": 0.48987854251012153
+        },
+        "fdOddsNoVig": {
+          "over": 0.4958445875753168,
+          "under": 0.5041554124246831
+        },
+        "ev": {
+          "over": -9.095158944525252,
+          "under": -5.338760553803162
+        }
+      },
+      "points_rebounds_assists": {
+        "line": 18.5,
+        "siaOdds": {
+          "over": -125,
+          "under": -105
+        },
+        "fdOdds": {
+          "over": -104,
+          "under": -122
+        },
+        "siaOddsNoVig": {
+          "over": 0.5203045685279188,
+          "under": 0.4796954314720812
+        },
+        "fdOddsNoVig": {
+          "over": 0.48124062031015497,
+          "under": 0.5187593796898449
+        },
+        "ev": {
+          "over": -13.376688344172107,
+          "under": -6.043497939445949
+        }
+      },
+      "threes": {
+        "line": 1.5,
+        "siaOdds": {
+          "over": -118,
+          "under": -110
+        },
+        "fdOdds": {
+          "over": -125,
+          "under": -102
+        },
+        "siaOddsNoVig": {
+          "over": 0.5082034454470877,
+          "under": 0.49179655455291227
+        },
+        "fdOddsNoVig": {
+          "over": 0.5238589211618258,
+          "under": 0.47614107883817425
+        },
+        "ev": {
+          "over": -3.219284056544062,
+          "under": 0.009430403621280448
+        }
+      }
+    },
+    "Aaron Nesmith": {
+      "points": {
+        "line": 14.5,
+        "siaOdds": {
+          "over": -120,
+          "under": -110
+        },
+        "fdOdds": {
+          "over": 100,
+          "under": -128
+        },
+        "siaOddsNoVig": {
+          "over": 0.5101214574898786,
+          "under": 0.48987854251012153
+        },
+        "fdOddsNoVig": {
+          "over": 0.4710743801652893,
+          "under": 0.5289256198347108
+        },
+        "ev": {
+          "over": -13.636363636363633,
+          "under": -10.067618332081139
+        }
+      },
+      "points_rebounds": {
+        "line": 19.5,
+        "siaOdds": {
+          "over": -125,
+          "under": -105
+        },
+        "fdOdds": {
+          "over": -111,
+          "under": -115
+        },
+        "siaOddsNoVig": {
+          "over": 0.5203045685279188,
+          "under": 0.4796954314720812
+        },
+        "fdOddsNoVig": {
+          "over": 0.4958445875753168,
+          "under": 0.5041554124246831
+        },
+        "ev": {
+          "over": -10.747974236442978,
+          "under": -3.192247187676252
+        }
+      },
+      "threes": {
+        "line": 2.5,
+        "siaOdds": {
+          "over": 110,
+          "under": -150
+        },
+        "fdOdds": {
+          "over": 130,
+          "under": -166
+        },
+        "siaOddsNoVig": {
+          "over": 0.46610169491525427,
+          "under": 0.5338983050847458
+        },
+        "fdOddsNoVig": {
+          "over": 0.4752611324903793,
+          "under": 0.5247388675096207
+        },
+        "ev": {
+          "over": -0.1951621770203502,
+          "under": -20.789811251603457
+        }
+      }
+    },
+    "Matas Buzelis": {
+      "points": {
+        "line": 14.5,
+        "siaOdds": {
+          "over": -120,
+          "under": -110
+        },
+        "fdOdds": {
+          "over": -104,
+          "under": -120
+        },
+        "siaOddsNoVig": {
+          "over": 0.5101214574898786,
+          "under": 0.48987854251012153
+        },
+        "fdOddsNoVig": {
+          "over": 0.4831081081081081,
+          "under": 0.5168918918918919
+        },
+        "ev": {
+          "over": -11.430180180180173,
+          "under": -7.7702702702702675
+        }
+      },
+      "points_rebounds": {
+        "line": 19.5,
+        "siaOdds": {
+          "over": -130,
+          "under": -105
+        },
+        "fdOdds": {
+          "over": -113,
+          "under": -113
+        },
+        "siaOddsNoVig": {
+          "over": 0.5246062992125985,
+          "under": 0.4753937007874017
+        },
+        "fdOddsNoVig": {
+          "over": 0.5,
+          "under": 0.5
+        },
+        "ev": {
+          "over": -11.538461538461533,
+          "under": -2.3809523809523867
+        }
+      },
+      "rebounds_assists": {
+        "line": 7.5,
+        "siaOdds": {
+          "over": -110,
+          "under": -120
+        },
+        "fdOdds": {
+          "over": 102,
+          "under": -130
+        },
+        "siaOddsNoVig": {
+          "over": 0.48987854251012153,
+          "under": 0.5101214574898786
+        },
+        "fdOddsNoVig": {
+          "over": 0.4718423169750604,
+          "under": 0.5281576830249397
+        },
+        "ev": {
+          "over": -9.921012213852102,
+          "under": -13.495575221238914
+        }
+      },
+      "threes": {
+        "line": 1.5,
+        "siaOdds": {
+          "over": -160,
+          "under": 125
+        },
+        "fdOdds": {
+          "over": -160,
+          "under": 124
+        },
+        "siaOddsNoVig": {
+          "over": 0.5255474452554745,
+          "under": 0.4744525547445255
+        },
+        "fdOddsNoVig": {
+          "over": 0.5264394829612221,
+          "under": 0.4735605170387779
+        },
+        "ev": {
+          "over": -14.453584018801408,
+          "under": 18.448883666274973
+        }
+      }
+    },
+    "Isaac Okoro": {
+      "points_rebounds": {
+        "line": 11.5,
+        "siaOdds": {
+          "over": 100,
+          "under": -130
+        },
+        "fdOdds": {
+          "over": 102,
+          "under": -130
+        },
+        "siaOddsNoVig": {
+          "over": 0.4693877551020409,
+          "under": 0.5306122448979592
+        },
+        "fdOddsNoVig": {
+          "over": 0.4718423169750604,
+          "under": 0.5281576830249397
+        },
+        "ev": {
+          "over": -5.6315366049879145,
+          "under": -16.520205458258538
+        }
+      }
+    },
+    "Jalen Smith": {
+      "rebounds": {
+        "line": 8.5,
+        "siaOdds": {
+          "over": -120,
+          "under": -110
+        },
+        "fdOdds": {
+          "over": -130,
+          "under": 102
+        },
+        "siaOddsNoVig": {
+          "over": 0.5101214574898786,
+          "under": 0.48987854251012153
+        },
+        "fdOddsNoVig": {
+          "over": 0.5281576830249397,
+          "under": 0.4718423169750604
+        },
+        "ev": {
+          "over": -3.171091445427713,
+          "under": 0.8301031229430365
+        }
+      },
+      "threes": {
+        "line": 1.5,
+        "siaOdds": {
+          "over": -115,
+          "under": -118
+        },
+        "fdOdds": {
+          "over": -140,
+          "under": 112
+        },
+        "siaOddsNoVig": {
+          "over": 0.4970261697065821,
+          "under": 0.5029738302934179
+        },
+        "fdOddsNoVig": {
+          "over": 0.5247524752475248,
+          "under": 0.4752475247524752
+        },
+        "ev": {
+          "over": -1.8941024537236328,
+          "under": -3.054203725457292
+        }
+      }
+    },
+    "Johnny Furphy": {
+      "rebounds": {
+        "line": 4.5,
+        "siaOdds": {
+          "over": -110,
+          "under": -118
+        },
+        "fdOdds": {
+          "over": -113,
+          "under": -113
+        },
+        "siaOddsNoVig": {
+          "over": 0.49179655455291227,
+          "under": 0.5082034454470877
+        },
+        "fdOddsNoVig": {
+          "over": 0.5,
+          "under": 0.5
+        },
+        "ev": {
+          "over": -4.545454545454547,
+          "under": -7.6271186440678
+        }
+      }
+    }
+  }
+}

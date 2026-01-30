@@ -1,0 +1,912 @@
+{
+  "ht": "Indiana Pacers",
+  "at": "Chicago Bulls",
+  "props": {
+    "T.J. McConnell": {
+      "assists": {
+        "sia": {
+          "line": 4.5,
+          "over": -115,
+          "under": -115
+        },
+        "fd": {
+          "line": 4.5,
+          "over": -118,
+          "under": -114
+        }
+      },
+      "points": {
+        "sia": {
+          "line": 8.5,
+          "over": -115,
+          "under": -115
+        },
+        "fd": {
+          "line": 8.5,
+          "over": -112,
+          "under": -118
+        }
+      }
+    },
+    "Pascal Siakam": {
+      "assists": {
+        "sia": {
+          "line": 4.5,
+          "over": 115,
+          "under": -150
+        },
+        "fd": {
+          "line": 4.5,
+          "over": 134,
+          "under": -180
+        }
+      },
+      "points": {
+        "sia": {
+          "line": 24.5,
+          "over": -125,
+          "under": -105
+        },
+        "fd": {
+          "line": 24.5,
+          "over": -122,
+          "under": -108
+        }
+      },
+      "points_assists": {
+        "sia": {
+          "line": 29.5,
+          "over": -110,
+          "under": -118
+        },
+        "fd": {
+          "line": 28.5,
+          "over": -128,
+          "under": -104
+        }
+      },
+      "points_rebounds": {
+        "sia": {
+          "line": 32.5,
+          "over": -115,
+          "under": -115
+        },
+        "fd": {
+          "line": 32.5,
+          "over": -110,
+          "under": -120
+        }
+      },
+      "points_rebounds_assists": {
+        "sia": {
+          "line": 36.5,
+          "over": -125,
+          "under": -105
+        },
+        "fd": {
+          "line": 36.5,
+          "over": -114,
+          "under": -114
+        }
+      },
+      "rebounds": {
+        "sia": {
+          "line": 7.5,
+          "over": -110,
+          "under": -118
+        },
+        "fd": {
+          "line": 7.5,
+          "over": 114,
+          "under": -152
+        }
+      },
+      "rebounds_assists": {
+        "sia": {
+          "line": 11.5,
+          "over": -130,
+          "under": -105
+        },
+        "fd": {
+          "line": 11.5,
+          "over": -102,
+          "under": -130
+        }
+      },
+      "threes": {
+        "sia": {
+          "line": 1.5,
+          "over": -175,
+          "under": 130
+        },
+        "fd": {
+          "line": 1.5,
+          "over": -180,
+          "under": 134
+        }
+      }
+    },
+    "Coby White": {
+      "assists": {
+        "sia": {
+          "line": 4.5,
+          "over": -140,
+          "under": 105
+        },
+        "fd": {
+          "line": 4.5,
+          "over": -130,
+          "under": -102
+        }
+      },
+      "points": {
+        "sia": {
+          "line": 20.5,
+          "over": -115,
+          "under": -115
+        },
+        "fd": {
+          "line": 19.5,
+          "over": -128,
+          "under": -104
+        }
+      },
+      "points_assists": {
+        "sia": {
+          "line": 25.5,
+          "over": -120,
+          "under": -110
+        },
+        "fd": {
+          "line": 24.5,
+          "over": -125,
+          "under": -106
+        }
+      },
+      "points_rebounds": {
+        "sia": {
+          "line": 24.5,
+          "over": -110,
+          "under": -118
+        },
+        "fd": {
+          "line": 23.5,
+          "over": -112,
+          "under": -118
+        }
+      },
+      "points_rebounds_assists": {
+        "sia": {
+          "line": 29.5,
+          "over": -115,
+          "under": -115
+        },
+        "fd": {
+          "line": 28.5,
+          "over": -112,
+          "under": -118
+        }
+      },
+      "rebounds": {
+        "sia": {
+          "line": 3.5,
+          "over": -125,
+          "under": -105
+        },
+        "fd": {
+          "line": 3.5,
+          "over": 102,
+          "under": -136
+        }
+      },
+      "rebounds_assists": {
+        "sia": {
+          "line": 8.5,
+          "over": -120,
+          "under": -110
+        },
+        "fd": {
+          "line": 8.5,
+          "over": 104,
+          "under": -138
+        }
+      },
+      "threes": {
+        "sia": {
+          "line": 2.5,
+          "over": -150,
+          "under": 115
+        },
+        "fd": {
+          "line": 2.5,
+          "over": -138,
+          "under": 104
+        }
+      }
+    },
+    "Andrew Nembhard": {
+      "assists": {
+        "sia": {
+          "line": 8.5,
+          "over": 110,
+          "under": -150
+        },
+        "fd": {
+          "line": 8.5,
+          "over": 108,
+          "under": -144
+        }
+      },
+      "points": {
+        "sia": {
+          "line": 16.5,
+          "over": -120,
+          "under": -110
+        },
+        "fd": {
+          "line": 16.5,
+          "over": -112,
+          "under": -118
+        }
+      },
+      "points_assists": {
+        "sia": {
+          "line": 24.5,
+          "over": -130,
+          "under": -105
+        },
+        "fd": {
+          "line": 24.5,
+          "over": -128,
+          "under": -104
+        }
+      },
+      "points_rebounds": {
+        "sia": {
+          "line": 19.5,
+          "over": -120,
+          "under": -110
+        },
+        "fd": {
+          "line": 19.5,
+          "over": -112,
+          "under": -118
+        }
+      },
+      "points_rebounds_assists": {
+        "sia": {
+          "line": 28.5,
+          "over": 100,
+          "under": -135
+        },
+        "fd": {
+          "line": 27.5,
+          "over": -128,
+          "under": -104
+        }
+      },
+      "rebounds_assists": {
+        "sia": {
+          "line": 11.5,
+          "over": 100,
+          "under": -135
+        },
+        "fd": {
+          "line": 11.5,
+          "over": 100,
+          "under": -132
+        }
+      },
+      "threes": {
+        "sia": {
+          "line": 1.5,
+          "over": -135,
+          "under": 100
+        },
+        "fd": {
+          "line": 1.5,
+          "over": -140,
+          "under": 106
+        }
+      }
+    },
+    "Nikola Vucevic": {
+      "assists": {
+        "sia": {
+          "line": 4.5,
+          "over": 135,
+          "under": -185
+        },
+        "fd": {
+          "line": 3.5,
+          "over": -144,
+          "under": 108
+        }
+      },
+      "points": {
+        "sia": {
+          "line": 16.5,
+          "over": -120,
+          "under": -110
+        },
+        "fd": {
+          "line": 16.5,
+          "over": -114,
+          "under": -114
+        }
+      },
+      "points_assists": {
+        "sia": {
+          "line": 20.5,
+          "over": -130,
+          "under": -105
+        },
+        "fd": {
+          "line": 20.5,
+          "over": -114,
+          "under": -114
+        }
+      },
+      "points_rebounds": {
+        "sia": {
+          "line": 25.5,
+          "over": -125,
+          "under": -105
+        },
+        "fd": {
+          "line": 25.5,
+          "over": -114,
+          "under": -114
+        }
+      },
+      "points_rebounds_assists": {
+        "sia": {
+          "line": 30.5,
+          "over": -105,
+          "under": -130
+        },
+        "fd": {
+          "line": 29.5,
+          "over": -112,
+          "under": -118
+        }
+      },
+      "rebounds": {
+        "sia": {
+          "line": 8.5,
+          "over": -140,
+          "under": 105
+        },
+        "fd": {
+          "line": 8.5,
+          "over": -120,
+          "under": -110
+        }
+      },
+      "rebounds_assists": {
+        "sia": {
+          "line": 13.5,
+          "over": 105,
+          "under": -140
+        },
+        "fd": {
+          "line": 12.5,
+          "over": -128,
+          "under": -104
+        }
+      },
+      "threes": {
+        "sia": {
+          "line": 1.5,
+          "over": 120,
+          "under": -160
+        },
+        "fd": {
+          "line": 1.5,
+          "over": 102,
+          "under": -136
+        }
+      }
+    },
+    "Josh Giddey": {
+      "assists": {
+        "sia": {
+          "line": 7.5,
+          "over": -115,
+          "under": -115
+        },
+        "fd": {
+          "line": 7.5,
+          "over": -104,
+          "under": -128
+        }
+      },
+      "points": {
+        "sia": {
+          "line": 17.5,
+          "over": -120,
+          "under": -110
+        },
+        "fd": {
+          "line": 17.5,
+          "over": 102,
+          "under": -136
+        }
+      },
+      "points_rebounds_assists": {
+        "sia": {
+          "line": 32.5,
+          "over": -125,
+          "under": -105
+        },
+        "fd": {
+          "line": 32.5,
+          "over": -114,
+          "under": -114
+        }
+      },
+      "rebounds": {
+        "sia": {
+          "line": 7.5,
+          "over": -105,
+          "under": -125
+        },
+        "fd": {
+          "line": 7.5,
+          "over": -110,
+          "under": -120
+        }
+      },
+      "threes": {
+        "sia": {
+          "line": 1.5,
+          "over": 100,
+          "under": -130
+        },
+        "fd": {
+          "line": 1.5,
+          "over": -106,
+          "under": -125
+        }
+      }
+    },
+    "Bennedict Mathurin": {
+      "points": {
+        "sia": {
+          "line": 15.5,
+          "over": -130,
+          "under": 100
+        },
+        "fd": {
+          "line": 15.5,
+          "over": -136,
+          "under": 102
+        }
+      },
+      "points_rebounds_assists": {
+        "sia": {
+          "line": 22.5,
+          "over": -120,
+          "under": -110
+        },
+        "fd": {
+          "line": 23.5,
+          "over": -108,
+          "under": -122
+        }
+      },
+      "rebounds": {
+        "sia": {
+          "line": 4.5,
+          "over": -110,
+          "under": -120
+        },
+        "fd": {
+          "line": 4.5,
+          "over": -114,
+          "under": -114
+        }
+      },
+      "threes": {
+        "sia": {
+          "line": 1.5,
+          "over": -145,
+          "under": 110
+        },
+        "fd": {
+          "line": 1.5,
+          "over": -158,
+          "under": 118
+        }
+      }
+    },
+    "Kevin Huerter": {
+      "points": {
+        "sia": {
+          "line": 7.5,
+          "over": 100,
+          "under": -130
+        },
+        "fd": {
+          "line": 7.5,
+          "over": -122,
+          "under": -108
+        }
+      },
+      "points_rebounds_assists": {
+        "sia": {
+          "line": 12.5,
+          "over": -105,
+          "under": -130
+        },
+        "fd": {
+          "line": 12.5,
+          "over": -114,
+          "under": -114
+        }
+      },
+      "threes": {
+        "sia": {
+          "line": 1.5,
+          "over": 140,
+          "under": -190
+        },
+        "fd": {
+          "line": 1.5,
+          "over": 110,
+          "under": -146
+        }
+      }
+    },
+    "Jarace Walker": {
+      "points": {
+        "sia": {
+          "line": 11.5,
+          "over": -105,
+          "under": -125
+        },
+        "fd": {
+          "line": 11.5,
+          "over": -108,
+          "under": -122
+        }
+      },
+      "points_assists": {
+        "sia": {
+          "line": 14.5,
+          "over": 100,
+          "under": -130
+        },
+        "fd": {
+          "line": 13.5,
+          "over": -132,
+          "under": 100
+        }
+      },
+      "points_rebounds_assists": {
+        "sia": {
+          "line": 19.5,
+          "over": -118,
+          "under": -110
+        },
+        "fd": {
+          "line": 19.5,
+          "over": -112,
+          "under": -118
+        }
+      },
+      "rebounds": {
+        "sia": {
+          "line": 5.5,
+          "over": -110,
+          "under": -120
+        },
+        "fd": {
+          "line": 5.5,
+          "over": 110,
+          "under": -146
+        }
+      },
+      "threes": {
+        "sia": {
+          "line": 1.5,
+          "over": -150,
+          "under": 110
+        },
+        "fd": {
+          "line": 1.5,
+          "over": -138,
+          "under": 104
+        }
+      }
+    },
+    "Ayo Dosunmu": {
+      "points": {
+        "sia": {
+          "line": 12.5,
+          "over": -125,
+          "under": -110
+        },
+        "fd": {
+          "line": 12.5,
+          "over": -112,
+          "under": -118
+        }
+      },
+      "points_rebounds_assists": {
+        "sia": {
+          "line": 19.5,
+          "over": 100,
+          "under": -130
+        },
+        "fd": {
+          "line": 18.5,
+          "over": -104,
+          "under": -128
+        }
+      },
+      "threes": {
+        "sia": {
+          "line": 1.5,
+          "over": -118,
+          "under": -110
+        },
+        "fd": {
+          "line": 1.5,
+          "over": -132,
+          "under": 100
+        }
+      }
+    },
+    "Aaron Nesmith": {
+      "points": {
+        "sia": {
+          "line": 14.5,
+          "over": -125,
+          "under": -110
+        },
+        "fd": {
+          "line": 14.5,
+          "over": 100,
+          "under": -132
+        }
+      },
+      "points_assists": {
+        "sia": {
+          "line": 17.5,
+          "over": -105,
+          "under": -125
+        },
+        "fd": {
+          "line": 16.5,
+          "over": -110,
+          "under": -120
+        }
+      },
+      "points_rebounds": {
+        "sia": {
+          "line": 19.5,
+          "over": -125,
+          "under": -105
+        },
+        "fd": {
+          "line": 19.5,
+          "over": -112,
+          "under": -118
+        }
+      },
+      "points_rebounds_assists": {
+        "sia": {
+          "line": 22.5,
+          "over": -110,
+          "under": -118
+        },
+        "fd": {
+          "line": 21.5,
+          "over": -120,
+          "under": -110
+        }
+      },
+      "rebounds": {
+        "sia": {
+          "line": 4.5,
+          "over": -155,
+          "under": 115
+        },
+        "fd": {
+          "line": 5.5,
+          "over": 114,
+          "under": -152
+        }
+      },
+      "threes": {
+        "sia": {
+          "line": 2.5,
+          "over": 110,
+          "under": -150
+        },
+        "fd": {
+          "line": 2.5,
+          "over": 126,
+          "under": -168
+        }
+      }
+    },
+    "Matas Buzelis": {
+      "points": {
+        "sia": {
+          "line": 14.5,
+          "over": -120,
+          "under": -110
+        },
+        "fd": {
+          "line": 14.5,
+          "over": -104,
+          "under": -128
+        }
+      },
+      "points_assists": {
+        "sia": {
+          "line": 17.5,
+          "over": -105,
+          "under": -125
+        },
+        "fd": {
+          "line": 16.5,
+          "over": -114,
+          "under": -114
+        }
+      },
+      "points_rebounds": {
+        "sia": {
+          "line": 20.5,
+          "over": -105,
+          "under": -125
+        },
+        "fd": {
+          "line": 19.5,
+          "over": -110,
+          "under": -120
+        }
+      },
+      "points_rebounds_assists": {
+        "sia": {
+          "line": 22.5,
+          "over": -115,
+          "under": -115
+        },
+        "fd": {
+          "line": 21.5,
+          "over": -120,
+          "under": -110
+        }
+      },
+      "rebounds": {
+        "sia": {
+          "line": 5.5,
+          "over": 110,
+          "under": -145
+        },
+        "fd": {
+          "line": 4.5,
+          "over": -158,
+          "under": 118
+        }
+      },
+      "rebounds_assists": {
+        "sia": {
+          "line": 7.5,
+          "over": -110,
+          "under": -120
+        },
+        "fd": {
+          "line": 7.5,
+          "over": 102,
+          "under": -136
+        }
+      },
+      "threes": {
+        "sia": {
+          "line": 1.5,
+          "over": -160,
+          "under": 125
+        },
+        "fd": {
+          "line": 1.5,
+          "over": -158,
+          "under": 118
+        }
+      }
+    },
+    "Isaac Okoro": {
+      "points": {
+        "sia": {
+          "line": 7.5,
+          "over": -140,
+          "under": 105
+        },
+        "fd": {
+          "line": 8.5,
+          "over": -102,
+          "under": -130
+        }
+      },
+      "points_rebounds": {
+        "sia": {
+          "line": 11.5,
+          "over": -105,
+          "under": -130
+        },
+        "fd": {
+          "line": 10.5,
+          "over": -136,
+          "under": 102
+        }
+      }
+    },
+    "Jalen Smith": {
+      "points": {
+        "sia": {
+          "line": 11.5,
+          "over": -118,
+          "under": -110
+        },
+        "fd": {
+          "line": 12.5,
+          "over": -108,
+          "under": -122
+        }
+      },
+      "points_rebounds": {
+        "sia": {
+          "line": 20.5,
+          "over": -120,
+          "under": -110
+        },
+        "fd": {
+          "line": 21.5,
+          "over": -114,
+          "under": -114
+        }
+      },
+      "rebounds": {
+        "sia": {
+          "line": 8.5,
+          "over": -120,
+          "under": -110
+        },
+        "fd": {
+          "line": 8.5,
+          "over": -132,
+          "under": 100
+        }
+      },
+      "threes": {
+        "sia": {
+          "line": 1.5,
+          "over": -110,
+          "under": -118
+        },
+        "fd": {
+          "line": 1.5,
+          "over": -146,
+          "under": 110
+        }
+      }
+    },
+    "Johnny Furphy": {
+      "rebounds": {
+        "sia": {
+          "line": 4.5,
+          "over": -118,
+          "under": -110
+        },
+        "fd": {
+          "line": 4.5,
+          "over": -114,
+          "under": -114
+        }
+      }
+    }
+  }
+}
