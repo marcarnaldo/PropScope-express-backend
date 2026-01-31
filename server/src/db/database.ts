@@ -1,6 +1,5 @@
 import Database from "better-sqlite3";
 import path from "path";
-import { FixtureRow } from "../config/interfaces";
 
 let db: Database.Database | null = null;
 
@@ -79,4 +78,13 @@ export const getNbaFixturesFromDb = (date: string) => {
     WHERE DATE(start_date) = ?
     `);
   return statement.all(date);
+};
+
+export const getNbaNormalizedOdds = () => {
+  if (!db) throw new Error("Database not connected");
+
+  const statement = db.prepare(/* SQL */ `
+    SELECT * FROM nba_odds_snapshots
+    `);
+  return statement.all();
 };

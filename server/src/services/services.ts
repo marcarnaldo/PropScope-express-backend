@@ -8,11 +8,9 @@ import { getFanduelOdds } from "../api/oddsApi.ts";
 
 export const aggregateOdds = async (
   fixtureId: number,
-  // homeTeam: string,
-  // awayTeam: string,
   fixture: any,
 ) => {
-  const awayTeam = fixture.participants[0].name.value;
+  const awayTeam = fixture.participants[1].name.value;
   const homeTeam = fixture.participants[0].name.value;
   const [siaOdds, fdOdds] = await Promise.all([
     getSiaOdds(fixtureId, homeTeam, awayTeam, fixture),

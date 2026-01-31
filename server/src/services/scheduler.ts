@@ -5,6 +5,7 @@ import { SIA_URLS } from "../config/siaConstants.ts";
 import {
   connectDb,
   getNbaFixturesFromDb,
+  getNbaNormalizedOdds,
   upsertFixture,
   upsertOdds,
 } from "../db/database.ts";
@@ -64,7 +65,7 @@ export const initFetchAndSaveNewFixtureToDb = () => {
   });
 };
 
-export const initMinuteScrapingScheduler = () => {
+export const initMinuteScrapingScheduler = (io: any) => {
   // Look at db at 8:01 A.M
   cron.schedule("1 8 * * *", () => {
     // Separate the time and date and only get date
@@ -114,6 +115,14 @@ export const initMinuteScrapingScheduler = () => {
                   data.fixture_id,
                   JSON.parse(data.fixture_data),
                 );
+
+                const normalizedOdds = getNbaNormalizedOdds();
+                const parsed = normalizedOdds.map((odds: any) => ({
+                  ...odds,
+                  odds_data: JSON.parse(odds.odds_data),
+                }));
+                // Need to emit (send) here so that every time we scrape, we are sending updates to all connected clients
+                io.emit("oddsUpdate", parsed);
               }, 60 * 5000); // Interval is every 5 minutes
 
               // We need to stop scraping once gameTime has been hit since sportsbooks locks away the pregame props
@@ -126,7 +135,7 @@ export const initMinuteScrapingScheduler = () => {
         }
       });
     };
-    checkIfScheduleChanged()
+    checkIfScheduleChanged();
   });
 };
 
