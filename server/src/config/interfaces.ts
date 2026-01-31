@@ -3,3 +3,7 @@ export interface PropParams {
     eventId: string
 }
 
+export interface FixtureRow {
+  start_date: string;
+}
+
