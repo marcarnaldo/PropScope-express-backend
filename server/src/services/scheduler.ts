@@ -65,7 +65,7 @@ export const initFetchAndSaveNewFixtureToDb = () => {
   });
 };
 
-export const initMinuteScrapingScheduler = (io: any) => {
+export const initMinuteScrapingScheduler = () => {
   // Look at db at 8:01 A.M
   cron.schedule("1 8 * * *", () => {
     // Separate the time and date and only get date
@@ -121,8 +121,6 @@ export const initMinuteScrapingScheduler = (io: any) => {
                   ...odds,
                   odds_data: JSON.parse(odds.odds_data),
                 }));
-                // Need to emit (send) here so that every time we scrape, we are sending updates to all connected clients
-                io.emit("oddsUpdate", parsed);
               }, 60 * 5000); // Interval is every 5 minutes
 
               // We need to stop scraping once gameTime has been hit since sportsbooks locks away the pregame props
