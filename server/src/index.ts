@@ -1,6 +1,6 @@
 import express from "express";
 import "dotenv/config";
-import { initBrowser } from "./api/siaApi.ts";
+import { getFixtures, initBrowser } from "./api/siaApi.ts";
 import {
   initFetchAndSaveNewFixtureToDb,
   initMinuteScrapingScheduler,

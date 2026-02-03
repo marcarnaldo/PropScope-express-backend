@@ -1,4 +1,4 @@
-import { Database } from "./database";
+import { Database } from "./database.ts";
 
 export const initNbaSchema = async (db: Database) => {
   await db.query(`

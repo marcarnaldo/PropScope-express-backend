@@ -1,5 +1,5 @@
-import { OddsSnapshot } from "../config/interfaces";
-import { Database } from "./database";
+import { OddsSnapshot } from "../config/interfaces.ts";
+import { Database } from "./database.ts";
 
 export const upsertFixture = async (
   db: Database,
