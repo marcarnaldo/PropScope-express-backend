@@ -2,19 +2,17 @@ import schedule from "node-schedule";
 import cron from "node-cron";
 import { getFixtures } from "../api/siaApi.ts";
 import { SIA_URLS } from "../config/siaConstants.ts";
+import { Database } from "../db/database.ts";
+import { filterSameLines, aggregateOdds, normalizeOdds } from "./services.ts";
 import {
-  connectDb,
+  upsertFixture,
   getNbaFixturesFromDb,
   getNbaNormalizedOdds,
-  upsertFixture,
   upsertOdds,
-} from "../db/database.ts";
-import { filterSameLines, aggregateOdds, normalizeOdds } from "./services.ts";
-
-connectDb();
+} from "../db/nbaRepositories.ts";
 
 // Daily schedule to fetch nba fixtures from sia api
-export const initFetchAndSaveNewFixtureToDb = () => {
+export const initFetchAndSaveNewFixtureToDb = (db: Database) => {
   // Fetch fixtures everyday at 8:00 A.M
   cron.schedule("0 8 * * *", async () => {
     const fixtures = await getFixtures(SIA_URLS.nba.fixtures);
@@ -24,7 +22,7 @@ export const initFetchAndSaveNewFixtureToDb = () => {
     // Save each fixture to db
     fixtures.forEach((fixture: any) => {
       const gameTime = new Date(fixture.startDate);
-      upsertFixture(fixture.id, fixture, fixture.startDate);
+      upsertFixture(db, fixture.id, fixture, fixture.startDate);
 
       if (!earliestGameTime) earliestGameTime = gameTime;
       if (gameTime < earliestGameTime) earliestGameTime = gameTime;
@@ -46,7 +44,7 @@ export const initFetchAndSaveNewFixtureToDb = () => {
         const reFetchedFixtures = await getFixtures(SIA_URLS.nba.fixtures);
         reFetchedFixtures.forEach((fixture: any) => {
           const gameTime = new Date(fixture.startDate);
-          upsertFixture(fixture.id, fixture, fixture.startDate);
+          upsertFixture(db, fixture.id, fixture, fixture.startDate);
 
           if (!earliestGameTime) earliestGameTime = gameTime;
           if (gameTime < earliestGameTime!) earliestGameTime = gameTime;
@@ -65,13 +63,13 @@ export const initFetchAndSaveNewFixtureToDb = () => {
   });
 };
 
-export const initMinuteScrapingScheduler = () => {
+export const initMinuteScrapingScheduler = (db: Database) => {
   // Look at db at 8:01 A.M
-  cron.schedule("1 8 * * *", () => {
+  cron.schedule("1 8 * * *", async () => {
     // Separate the time and date and only get date
     const dateToday = new Date().toISOString().split("T")[0];
 
-    let fixturesFromDb = getNbaFixturesFromDb(dateToday);
+    let fixturesFromDb = await getNbaFixturesFromDb(db, dateToday);
     const gameDates = fixturesFromDb.map((data: any) => data.start_date);
 
     const sortedDates = gameDates
@@ -81,13 +79,13 @@ export const initMinuteScrapingScheduler = () => {
     let earliestSchedule = sortedDates[0];
     let isChanged: boolean;
 
-    const checkIfScheduleChanged = () => {
+    const schduleWorkers = () => {
       const scrapeTime = new Date(
         earliestSchedule.getTime() - 2 * 60 * 60 * 1000,
       );
 
-      schedule.scheduleJob(scrapeTime, () => {
-        fixturesFromDb = getNbaFixturesFromDb(dateToday);
+      schedule.scheduleJob(scrapeTime, async () => {
+        fixturesFromDb = await getNbaFixturesFromDb(db, dateToday);
 
         const currentGameDates = fixturesFromDb.map(
           (data: any) => data.start_date,
@@ -103,7 +101,7 @@ export const initMinuteScrapingScheduler = () => {
         if (currentEarliest.getTime() !== earliestSchedule.getTime()) {
           earliestSchedule = currentEarliest;
           isChanged = true;
-          checkIfScheduleChanged();
+          schduleWorkers();
         } else {
           fixturesFromDb.forEach((data: any) => {
             const fixtureScrapeTime = new Date(
@@ -112,15 +110,10 @@ export const initMinuteScrapingScheduler = () => {
             schedule.scheduleJob(fixtureScrapeTime, () => {
               const scrapeInterval = setInterval(async () => {
                 await updateOddsToDb(
+                  db,
                   data.fixture_id,
                   JSON.parse(data.fixture_data),
                 );
-
-                const normalizedOdds = getNbaNormalizedOdds();
-                const parsed = normalizedOdds.map((odds: any) => ({
-                  ...odds,
-                  odds_data: JSON.parse(odds.odds_data),
-                }));
               }, 60 * 5000); // Interval is every 5 minutes
 
               // We need to stop scraping once gameTime has been hit since sportsbooks locks away the pregame props
@@ -133,13 +126,17 @@ export const initMinuteScrapingScheduler = () => {
         }
       });
     };
-    checkIfScheduleChanged();
+    schduleWorkers();
   });
 };
 
-const updateOddsToDb = async (fixtureId: number, fixture: any) => {
+const updateOddsToDb = async (
+  db: Database,
+  fixtureId: number,
+  fixture: any,
+) => {
   const aggregatedOdds = await aggregateOdds(fixtureId, fixture);
   const filteredOdds = filterSameLines(aggregatedOdds);
   const normalizedOdds = normalizeOdds(filteredOdds);
-  upsertOdds(fixtureId, normalizedOdds);
+  upsertOdds(db, fixtureId, normalizedOdds);
 };

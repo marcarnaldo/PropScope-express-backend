@@ -1,29 +1,32 @@
 import express from "express";
 import "dotenv/config";
 import { initBrowser } from "./api/siaApi.ts";
-import { closeDb, connectDb, getNbaNormalizedOdds } from "./db/database.ts";
 import {
   initFetchAndSaveNewFixtureToDb,
   initMinuteScrapingScheduler,
 } from "./services/scheduler.ts";
 
+import { Database } from "./db/database.ts";
+import { initNbaSchema } from "./db/schemas.ts";
+import { getNbaNormalizedOdds } from "./db/nbaRepositories.ts";
+
 const app = express();
 const port = process.env.PORT;
 
+// Open the browser and tabs
 await initBrowser();
-connectDb();
 
-initFetchAndSaveNewFixtureToDb();
-initMinuteScrapingScheduler();
+// Connect to db
+const db = Database.getInstance();
+// Create the tables
+await initNbaSchema(db);
 
-app.get("/nba/normalizedOdds", (req, res) => {
-  const nbaNormalizedOdds = getNbaNormalizedOdds();
-  const parsed = nbaNormalizedOdds.map((odds: any) => ({
-    ...odds,
-    odds_data: JSON.parse(odds.odds_data),
-  }));
+initFetchAndSaveNewFixtureToDb(db);
+initMinuteScrapingScheduler(db);
 
-  res.json(parsed); 
+app.get("/nba/normalizedOdds", async (req, res) => {
+  const nbaNormalizedOdds = await getNbaNormalizedOdds(db);
+  res.json(nbaNormalizedOdds);
 });
 
 app.listen(port, () => {
@@ -31,15 +34,15 @@ app.listen(port, () => {
 });
 
 // SIGINT happens when we stop the server (ctrl + c)
-process.on("SIGINT", () => {
-  console.log("Shutting down...");  
-  closeDb();
+process.on("SIGINT", async () => {
+  console.log("Shutting down...");
+  await db.close();
   process.exit(0);
 });
 
 // SIGTERM happens when the server is killed or stopped
-process.on("SIGTERM", () => {
+process.on("SIGTERM", async () => {
   console.log("Shutting down...");
-  closeDb();
+  await db.close();
   process.exit(0);
 });

@@ -1,90 +1,44 @@
-import Database from "better-sqlite3";
-import path from "path";
+import pg from "pg";
+import "dotenv/config";
 
-let db: Database.Database | null = null;
+export class Database {
+  // Ensuring only 1 db is made throughout the entire project
+  private static instance: Database;
+  // Reuses existing connection
+  private pool: pg.Pool;
 
-export const connectDb = () => {
-  if (!db) {
-    const dbPath = path.join(process.cwd(), "data", "odds.db");
-    db = new Database(dbPath);
+  private constructor() {
+    this.pool = new pg.Pool({
+      host: process.env.DB_HOST,
+      port: parseInt(process.env.DB_PORT || "5432"),
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD,
+      database: process.env.DB_NAME,
+      // max: 10,
+      // idleTimeoutMillis: 30000,
+      // connectionTimeoutMillis: 2000,
+    });
 
-    initSchema(db);
-    console.log("Connected to SQLite database.");
+    this.pool.on("error", (err) => {
+      console.error("Unexpected database error", err);
+    });
   }
 
-  return db;
-};
-
-export const closeDb = () => {
-  if (db) {
-    db.close();
-    db = null;
-    console.log("Database connection closed.");
+  // Singleton pattern to make sure that we are only making 1 db
+  public static getInstance(): Database {
+    // If instance doesn't exist, create it
+    if (!Database.instance) {
+      Database.instance = new Database();
+    }
+    return Database.instance;
   }
-};
 
-const initSchema = (database: Database.Database) => {
-  database.exec(/* SQL */ `
-    CREATE TABLE IF NOT EXISTS nba_fixtures (
-      fixture_id INTEGER PRIMARY KEY,
-      fixture_data TEXT NOT NULL,
-      start_date TEXT NOT NULL,
-      created_at TEXT DEFAULT (datetime('now'))
-    );
+  public async query(sql: string, params?: any[]): Promise<pg.QueryResult> {
+    return this.pool.query(sql, params);
+  }
 
-    CREATE TABLE IF NOT EXISTS nba_odds_snapshots (
-      fixture_id INTEGER PRIMARY KEY,
-      odds_data TEXT NOT NULL,
-      last_updated TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (fixture_id) REFERENCES nba_fixtures(fixture_id)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_fixture_start_date ON nba_fixtures(start_date);
-  `);
-
-  console.log("Database schema initialized.");
-};
-
-export const upsertFixture = (
-  fixtureId: number,
-  fixtureData: any,
-  startDate: string,
-) => {
-  if (!db) throw new Error("Database not connected");
-
-  // Insert the new fixture to db
-  const statement = db.prepare(/* SQL */ `
-    INSERT OR REPLACE INTO nba_fixtures (fixture_id, fixture_data, start_date) 
-    VALUES (?, ?, ?)
-    `);
-  statement.run(fixtureId, JSON.stringify(fixtureData), startDate);
-};
-
-export const upsertOdds = (fixtureId: number, oddsData: any) => {
-  if (!db) throw new Error("Database not connected");
-  const statement = db.prepare(/* SQL */ `
-      INSERT OR REPLACE INTO nba_odds_snapshots (fixture_id, odds_data, last_updated)
-      VALUES (?, ?, datetime('now'))
-    `);
-
-  statement.run(fixtureId, JSON.stringify(oddsData));
-};
-
-export const getNbaFixturesFromDb = (date: string) => {
-  if (!db) throw new Error("Database not connected");
-
-  const statement = db.prepare(/* SQL */ `
-    SELECT * FROM nba_fixtures 
-    WHERE DATE(start_date) = ?
-    `);
-  return statement.all(date);
-};
-
-export const getNbaNormalizedOdds = () => {
-  if (!db) throw new Error("Database not connected");
-
-  const statement = db.prepare(/* SQL */ `
-    SELECT * FROM nba_odds_snapshots
-    `);
-  return statement.all();
-};
+  public async close(): Promise<void> {
+    await this.pool.end();
+    console.log("Database connection closed");
+  }
+}
