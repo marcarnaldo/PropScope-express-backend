@@ -1,15 +1,7 @@
-import {
-  getSiaOdds,
-  initBrowser,
-  getFixtures,
-  closeBrowser,
-} from "../api/siaApi.ts";
+import { getSiaOdds } from "../api/siaApi.ts";
 import { getFanduelOdds } from "../api/oddsApi.ts";
 
-export const aggregateOdds = async (
-  fixtureId: number,
-  fixture: any,
-) => {
+export const aggregateOdds = async (fixtureId: number, fixture: any) => {
   const awayTeam = fixture.participants[1].name.value;
   const homeTeam = fixture.participants[0].name.value;
   const [siaOdds, fdOdds] = await Promise.all([

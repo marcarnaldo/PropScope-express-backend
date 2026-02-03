@@ -46,7 +46,7 @@ export const getFanduelOdds = async (homeTeam: string, awayTeam: string) => {
     SPORTS.NBA,
     filteredEvent.id,
     PROP_MARKETS_ODDSAPI.NBA,
-    ANCHOR_BOOK.bookMakerKey,
+    ANCHOR_BOOK,
   );
 
   const fdMarkets = fdData.bookmakers[0].markets || [];

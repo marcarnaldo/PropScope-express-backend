@@ -4,6 +4,9 @@ export const SPORTS = {
   NHL: "icehockey_nhl",
 } as const;
 
+export const ANCHOR_BOOK = "fanduel"
+
+
 export const PROP_MARKETS_ODDSAPI = {
   NBA: [
     "player_points",

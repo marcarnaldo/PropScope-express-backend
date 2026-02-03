@@ -26,7 +26,7 @@ export const upsertOdds = async (
     /* SQL */ `
         INSERT INTO nba_odds_snapshots (fixture_id, odds_data, last_updated)
         VALUES ($1, $2, NOW())
-        ON CONFLICT (fixtureId)
+        ON CONFLICT (fixture_id)
         DO UPDATE SET odds_data = $2, last_updated = NOW()`,
     [fixtureId, JSON.stringify(oddsData)],
   );
