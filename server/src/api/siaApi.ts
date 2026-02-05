@@ -97,12 +97,12 @@ export class SiaApiService {
 
       const filteredMarket = specificFixture.optionMarkets?.filter(
         (market: any) =>
-          // Check if the market has a templateCategory of "Player Special" because the ones that I want belongs here
+          // Check if the market has a templateCategory of "Player specials" because the ones that I want belongs here
           market.templateCategory?.name?.value === "Player specials" &&
           // We must only get the ones with the same patterns as in the PROP_MARKETS_SIAAPI since that is all the over unders that I want
-          PROP_MARKETS_SIAAPI.NBA.some((pattern) => {
-            market.name.value.includes(pattern);
-          }),
+          PROP_MARKETS_SIAAPI.NBA.some((pattern) =>
+            market.name.value.includes(pattern)
+          ),
       );
 
       const propsByPlayer = {
