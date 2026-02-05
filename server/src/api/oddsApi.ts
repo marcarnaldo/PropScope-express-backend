@@ -24,7 +24,6 @@ const getFanduelEvents = async (sport: string) => {
       return data;
     } catch (error) {
       const errorMessage = getErrorMessage(error);
-      console.warn(`[Retry ${attempt}/${MAX_RETRIES}] getFanduelEvents failed: ${errorMessage}...`);
       lastError = error;
 
       if (attempt === MAX_RETRIES) break;
@@ -92,7 +91,6 @@ const getPlayerProps = async (
       return data;
     } catch (error) {
       const errorMessage = getErrorMessage(error);
-         console.warn(`[Retry ${attempt}/${MAX_RETRIES}] getPlayerProps failed: ${errorMessage}...`);
       lastError = error;
 
       if (attempt === MAX_RETRIES) break;
