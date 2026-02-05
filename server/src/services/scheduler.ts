@@ -1,132 +1,140 @@
 import schedule from "node-schedule";
 import cron from "node-cron";
-import { getFixtures } from "../api/siaApi.ts";
+import { SiaApiService } from "../api/siaApi.ts";
+import { getErrorMessage } from "../utils/errorHandling.ts";
 import { SIA_URLS } from "../config/siaConstants.ts";
 import { Database } from "../db/database.ts";
-import { filterSameLines, aggregateOdds, normalizeOdds } from "./services.ts";
+import {
+  filterSameLines,
+  normalizeOdds,
+  aggregateSiaAndFdOdds,
+} from "./oddsAggregator.ts";
 import {
   upsertFixture,
   getNbaFixturesFromDb,
-  getNbaNormalizedOdds,
   upsertOdds,
 } from "../db/nbaRepositories.ts";
+import { FanduelOddsApiService } from "../api/oddsApi.ts";
 
-// Daily schedule to fetch nba fixtures from sia api
-export const initFetchAndSaveNewFixtureToDb = (db: Database) => {
-  // Fetch fixtures everyday at 8:00 A.M
-  cron.schedule("0 8 * * *", async () => {
-    const fixtures = await getFixtures(SIA_URLS.nba.fixtures);
-    // Find out the earliest game time
-    let earliestGameTime: Date | undefined;
+export const initDailyFixtureFetcher = async (
+  db: Database,
+  siaService: SiaApiService,
+) => {
+  const job = cron.schedule("0 6-23 * * *", async () => {
+    try {
+      // Find out the date today
+      const dateToday = new Date().toISOString().split("T")[0];
+      // Check if we already have the fixtures today on db
+      const existingFixturesFromDb = await getNbaFixturesFromDb(db, dateToday);
 
-    // Save each fixture to db
-    fixtures.forEach((fixture: any) => {
-      const gameTime = new Date(fixture.startDate);
-      upsertFixture(db, fixture.id, fixture, fixture.startDate);
+      // Just do nothing if we already have the fixtures on db
+      if (existingFixturesFromDb.length > 0) {
+        console.log("Fixtures already fetched for today, skipping...");
+        return;
+      }
 
-      if (!earliestGameTime) earliestGameTime = gameTime;
-      if (gameTime < earliestGameTime) earliestGameTime = gameTime;
-    });
+      const fixtures = await siaService.getFixtures(SIA_URLS.nba.fixtures);
 
-    // Our minute by minute scraping will start at this time so we must stop fetching the fixtures
-    let stopTime = new Date(earliestGameTime!.getTime() - 2 * 60 * 60 * 1000);
+      // Just exit if there are no NBA games today
+      if (fixtures.length === 0) {
+        console.log("No NBA games today, skipping...");
+        return;
+      }
 
-    // We refetch the fixtures every 2 hours after the initial fetch just incase the league decided to reschedule. It is very rare for the leauge to reschedule or cancel games once a game starts in that day.
-    const updateInterval = setInterval(
-      async () => {
-        const now = new Date();
-        const twoHoursFromNow = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+      // save each fixture to db
+      for (const fixture of fixtures) {
+        await upsertFixture(db, fixture.id, fixture, fixture.startDate);
+      }
 
-        // Need to clear earliest game time just in case there is a new earliest game time in the event of a rescheduled game
-        earliestGameTime = undefined;
+      // Once we save the fixtures to db, stop the cron job, so we do not continue on the hourly job
+      job.stop();
 
-        // While we are still away from stop time, keep refetching every 2 hours
-        const reFetchedFixtures = await getFixtures(SIA_URLS.nba.fixtures);
-        reFetchedFixtures.forEach((fixture: any) => {
-          const gameTime = new Date(fixture.startDate);
-          upsertFixture(db, fixture.id, fixture, fixture.startDate);
-
-          if (!earliestGameTime) earliestGameTime = gameTime;
-          if (gameTime < earliestGameTime!) earliestGameTime = gameTime;
-        });
-
-        stopTime = new Date(earliestGameTime!.getTime() - 2 * 60 * 60 * 1000);
-
-        // Check if 2 hours from now go over stop time or right at it. We must stop when that happens. No need to refetch since we are going to do the minute by minute scraping
-        if (twoHoursFromNow >= stopTime) {
-          clearInterval(updateInterval);
-          return;
-        }
-      },
-      2 * 60 * 60 * 1000,
-    );
+      // Since the cron job has been stopped, we need to restart it again for tomorrow
+      scheduleRestartForTomorrow(job);
+    } catch (error) {
+      const errorMessage = getErrorMessage(error);
+      console.error("Hourly fixture fetch failed:", errorMessage);
+    }
   });
 };
 
-export const initMinuteScrapingScheduler = (db: Database) => {
-  // Look at db at 8:01 A.M
-  cron.schedule("1 8 * * *", async () => {
-    // Separate the time and date and only get date
-    const dateToday = new Date().toISOString().split("T")[0];
+const scheduleRestartForTomorrow = (job: any) => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(6, 0, 0, 0);
 
-    let fixturesFromDb = await getNbaFixturesFromDb(db, dateToday);
-    const gameDates = fixturesFromDb.map((data: any) => data.start_date);
+  const timeUntilTomorrow = tomorrow.getTime() - Date.now();
 
-    const sortedDates = gameDates
-      .map((row: string) => new Date(row))
-      .sort((a, b) => a.getTime() - b.getTime());
+  setTimeout(() => {
+    job.start();
+  }, timeUntilTomorrow);
+};
 
-    let earliestSchedule = sortedDates[0];
-    let isChanged: boolean;
+export const initScrapingScheduler = async (
+  db: Database,
+  siaService: SiaApiService,
+  fdService: FanduelOddsApiService,
+) => {
+  const dateToday = new Date().toISOString().split("T")[0];
 
-    const schduleWorkers = () => {
-      const scrapeTime = new Date(
-        earliestSchedule.getTime() - 2 * 60 * 60 * 1000,
+  try {
+    const fixturesFromDb = await getNbaFixturesFromDb(db, dateToday);
+
+    // Skip scraping scheduling if no games today
+    if (fixturesFromDb.length === 0) {
+      console.log("No NBA games today, skipping scraping scheduler");
+      return;
+    }
+
+    // For each game, schedule a scraper every 5 minute to save odds to db
+    fixturesFromDb.forEach((fixtureRow: any) => {
+      const gameTime = new Date(fixtureRow.start_date);
+      const twoHoursInMilliseconds = 2 * 60 * 60 * 1000;
+      const scrapeTime = new Date(gameTime.getTime() - twoHoursInMilliseconds);
+      const scrapeInteval = 60 * 5000; // 5 minutes
+      // We schedule our scrapers 2 hours before game time since sharp money tend to flow during that time
+      scheduleOddsScraper(
+        scrapeTime,
+        db,
+        fixtureRow,
+        scrapeInteval,
+        siaService,
+        fdService,
       );
+    });
+  } catch (error) {
+    const errorMessage = getErrorMessage(error);
+    console.error("Failed to initialize scraping scheduler:", errorMessage);
+  }
+};
 
-      schedule.scheduleJob(scrapeTime, async () => {
-        fixturesFromDb = await getNbaFixturesFromDb(db, dateToday);
+const scheduleOddsScraper = (
+  scrapeTime: Date,
+  db: Database,
+  fixtureRow: any,
+  interval: number,
+  siaService: SiaApiService,
+  fdService: FanduelOddsApiService,
+) => {
+  const gameTime = new Date(fixtureRow.start_date);
 
-        const currentGameDates = fixturesFromDb.map(
-          (data: any) => data.start_date,
-        );
+  schedule.scheduleJob(scrapeTime, () => {
+    const scrapeInterval = setInterval(async () => {
+      await updateOddsToDb(
+        db,
+        fixtureRow.fixture_id,
+        JSON.parse(fixtureRow.fixture_data),
+        siaService,
+        fdService,
+      );
+    }, interval);
 
-        const currentSortedGameDates = currentGameDates
-          .map((row) => new Date(row))
-          .sort((a, b) => a.getTime() - b.getTime());
-
-        const currentEarliest = currentSortedGameDates[0];
-
-        // If the game time is not the same as the one we got earlier at 8:01 A.M we check again later 2 hours before the new time
-        if (currentEarliest.getTime() !== earliestSchedule.getTime()) {
-          earliestSchedule = currentEarliest;
-          isChanged = true;
-          schduleWorkers();
-        } else {
-          fixturesFromDb.forEach((data: any) => {
-            const fixtureScrapeTime = new Date(
-              new Date(data.start_date).getTime() - 2 * 60 * 60 * 1000,
-            );
-            schedule.scheduleJob(fixtureScrapeTime, () => {
-              const scrapeInterval = setInterval(async () => {
-                await updateOddsToDb(
-                  db,
-                  data.fixture_id,
-                  JSON.parse(data.fixture_data),
-                );
-              }, 60 * 5000); // Interval is every 5 minutes
-
-              // We need to stop scraping once gameTime has been hit since sportsbooks locks away the pregame props
-              schedule.scheduleJob(new Date(data.start_date), () => {
-                clearInterval(scrapeInterval);
-                console.log("Game started, stopped scraping");
-              });
-            });
-          });
-        }
-      });
-    };
-    schduleWorkers();
+    schedule.scheduleJob(gameTime, () => {
+      clearInterval(scrapeInterval);
+      console.log(
+        `Game started, stopped scraping fixture ${fixtureRow.fixture_id}`,
+      );
+    });
   });
 };
 
@@ -134,9 +142,33 @@ const updateOddsToDb = async (
   db: Database,
   fixtureId: number,
   fixture: any,
+  siaService: SiaApiService,
+  fdService: FanduelOddsApiService,
 ) => {
-  const aggregatedOdds = await aggregateOdds(fixtureId, fixture);
-  const filteredOdds = filterSameLines(aggregatedOdds);
-  const normalizedOdds = normalizeOdds(filteredOdds);
-  upsertOdds(db, fixtureId, normalizedOdds);
+  try {
+    const aggregatedOdds = await aggregateSiaAndFdOdds(
+      fixtureId,
+      fixture,
+      siaService,
+      fdService,
+    );
+
+    if (!aggregatedOdds) {
+      console.log(
+        `No odds available for fixture ${fixtureId}, skipping saving to db.`,
+      );
+      return;
+    }
+    const filteredOdds = filterSameLines(aggregatedOdds);
+    const normalizedOdds = normalizeOdds(filteredOdds);
+    await upsertOdds(db, fixtureId, normalizedOdds);
+
+    console.log(`Updated odds for fixture ${fixtureId}`);
+  } catch (error) {
+    const errorMessage = getErrorMessage(error);
+    console.error(
+      `Failed to update odds for fixture ${fixtureId}:`,
+      errorMessage,
+    );
+  }
 };

@@ -81,7 +81,7 @@ export class FanduelOddsApiService {
         const usedCredits = parseInt(res.headers.get("x-requests-used") || "0");
         const totalCredits = remainingCredits + usedCredits;
         const lastUsedCredits = parseInt(
-          res.headers.get("x-requests-last ") || "0",
+          res.headers.get("x-requests-last") || "0",
         );
 
         console.log(`Remaining credits: ${remainingCredits}`);

@@ -8,8 +8,8 @@ export const aggregateSiaAndFdOdds = async (
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
 ): Promise<any | null> => {
-  const awayTeam = fixture.participants[1].name.value;
-  const homeTeam = fixture.participants[0].name.value;
+  const awayTeam = fixture.participants[0].name.value;
+  const homeTeam = fixture.participants[1].name.value;
 
   try {
     const [siaOdds, fdOdds] = await Promise.all([
