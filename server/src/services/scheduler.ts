@@ -78,28 +78,11 @@ export const initDailyFixtureFetcher = async (
         await upsertFixture(db, fixture.id, fixture, fixture.startDate);
       }
 
-      // Once we save the fixtures to db, stop the cron job, so we do not continue on the hourly job
-      job.stop();
-
-      // Since the cron job has been stopped, we need to restart it again for tomorrow
-      scheduleRestartForTomorrow(job);
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       console.error("Hourly fixture fetch failed:", errorMessage);
     }
   });
-};
-
-const scheduleRestartForTomorrow = (job: any) => {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  tomorrow.setHours(6, 0, 0, 0);
-
-  const timeUntilTomorrow = tomorrow.getTime() - Date.now();
-
-  setTimeout(() => {
-    job.start();
-  }, timeUntilTomorrow);
 };
 
 export const initScrapingScheduler = async (
