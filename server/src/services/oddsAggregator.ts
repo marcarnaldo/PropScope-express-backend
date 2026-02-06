@@ -13,7 +13,7 @@ export const aggregateSiaAndFdOdds = async (
 
   try {
     const [siaOdds, fdOdds] = await Promise.all([
-      siaService.getSiaPlayerOverUnders(fixtureId, homeTeam, awayTeam, fixture),
+      siaService.getSiaOdds(fixtureId, homeTeam, awayTeam, fixture),
       fdService.getFanduelOdds(homeTeam, awayTeam),
     ]);
 
@@ -179,7 +179,8 @@ const removeVig = (overOdds: number, underOdds: number): [number, number] => {
 
   // Trying to find the a value that will make the sum of both odds equal to 1 or 100%, removing the vig
   // We are guessing the middle of whatever range is left. This is like binary search. Halving the search each iteration.
-  let lo = 0, hi = 1;
+  let lo = 0,
+    hi = 10; // Set hi to 10 initially to handle extreme odds,
   for (let i = 0; i < 100; i++) {
     const mid = (lo + hi) / 2;
     const sum = Math.pow(overImplied, mid) + Math.pow(underImplied, mid);
@@ -197,6 +198,3 @@ const toImpliedProbability = (odds: number) => {
   if (odds < 0) return Math.abs(odds) / (Math.abs(odds) + 100);
   return 100 / (odds + 100);
 };
-
-
-
