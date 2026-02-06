@@ -173,15 +173,30 @@ export const normalizeOdds = (filteredLines: any) => {
   return removedVig;
 };
 
-const removeVig = (overOdds: number, underOdds: number) => {
-  // Calculate the implied probability set by the books makers
-  const overImplied = Math.abs(overOdds) / (Math.abs(overOdds) + 100);
-  const underImplied = Math.abs(underOdds) / (Math.abs(underOdds) + 100);
+const removeVig = (overOdds: number, underOdds: number): [number, number] => {
+  const overImplied = toImpliedProbability(overOdds);
+  const underImplied = toImpliedProbability(underOdds);
 
-  // Add both to get the vig
-  const total = overImplied + underImplied;
+  // Trying to find the a value that will make the sum of both odds equal to 1 or 100%, removing the vig
+  // We are guessing the middle of whatever range is left. This is like binary search. Halving the search each iteration.
+  let lo = 0, hi = 1;
+  for (let i = 0; i < 100; i++) {
+    const mid = (lo + hi) / 2;
+    const sum = Math.pow(overImplied, mid) + Math.pow(underImplied, mid);
+    if (sum > 1) lo = mid;
+    else hi = mid;
+  }
 
-  // By dividing the implied to total, we can remove the vig. Now we get the true probability of the bookmaker
-  const [overNovig, underNoVig] = [overImplied / total, underImplied / total];
-  return [overNovig, underNoVig];
+  // k is the power that will make the odds equal to 1 or 100%, thus removing the vig
+  const k = (lo + hi) / 2;
+
+  return [Math.pow(overImplied, k), Math.pow(underImplied, k)];
 };
+
+const toImpliedProbability = (odds: number) => {
+  if (odds < 0) return Math.abs(odds) / (Math.abs(odds) + 100);
+  return 100 / (odds + 100);
+};
+
+
+
