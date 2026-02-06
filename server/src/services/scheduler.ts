@@ -16,6 +16,38 @@ import {
 } from "../db/nbaRepositories.ts";
 import { FanduelOddsApiService } from "../api/oddsApi.ts";
 
+export class Scheduler {
+  private activeIntervals: ReturnType<typeof setInterval>[];
+  private activeJobs: schedule.Job[];
+
+  constructor() {
+    this.activeIntervals = [];
+    this.activeJobs = [];
+  }
+
+  addInterval(
+    callback: () => void,
+    interval: number,
+  ): ReturnType<typeof setInterval> {
+    const id = setInterval(callback, interval);
+    this.activeIntervals.push(id);
+    return id;
+  }
+
+  addJob(time: Date, callback: () => void): schedule.Job {
+    const job = schedule.scheduleJob(time, callback);
+    this.activeJobs.push(job);
+    return job;
+  }
+
+  shutdown(): void {
+    this.activeIntervals.forEach((i) => clearInterval(i));
+    this.activeJobs.forEach((j) => j.cancel());
+    this.activeIntervals = [];
+    this.activeJobs = [];
+  }
+}
+
 export const initDailyFixtureFetcher = async (
   db: Database,
   siaService: SiaApiService,
@@ -74,6 +106,7 @@ export const initScrapingScheduler = async (
   db: Database,
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
+  scheduler: Scheduler,
 ) => {
   const dateToday = new Date().toISOString().split("T")[0];
 
@@ -100,6 +133,7 @@ export const initScrapingScheduler = async (
         scrapeInteval,
         siaService,
         fdService,
+        scheduler,
       );
     });
   } catch (error) {
@@ -115,11 +149,12 @@ const scheduleOddsScraper = (
   interval: number,
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
+  scheduler: Scheduler,
 ) => {
   const gameTime = new Date(fixtureRow.start_date);
 
-  schedule.scheduleJob(scrapeTime, () => {
-    const scrapeInterval = setInterval(async () => {
+  scheduler.addJob(scrapeTime, () => {
+    const scrapeInterval = scheduler.addInterval(async () => {
       await updateOddsToDb(
         db,
         fixtureRow.fixture_id,
@@ -129,7 +164,7 @@ const scheduleOddsScraper = (
       );
     }, interval);
 
-    schedule.scheduleJob(gameTime, () => {
+    scheduler.addJob(gameTime, () => {
       clearInterval(scrapeInterval);
       console.log(
         `Game started, stopped scraping fixture ${fixtureRow.fixture_id}`,

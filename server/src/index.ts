@@ -7,6 +7,7 @@ import { initNbaSchema } from "./db/schemas";
 import {
   initDailyFixtureFetcher,
   initScrapingScheduler,
+  Scheduler,
 } from "./services/scheduler";
 import { getNbaNormalizedOdds } from "./db/nbaRepositories";
 
@@ -53,9 +54,11 @@ await initNbaSchema(db);
 const siaService = new SiaApiService();
 await siaService.initialize();
 const fdService = new FanduelOddsApiService();
+const scheduler = new Scheduler();
 
 await initDailyFixtureFetcher(db, siaService);
-await initScrapingScheduler(db, siaService, fdService);
+/* initScrapingScheduler only runs once at startup. If the server starts before fixtures are fetched (the daily fetcher hasn't found games yet), the scraping scheduler will see 0 fixtures and skip. There's no mechanism to re-trigger it once fixtures arrive. */
+await initScrapingScheduler(db, siaService, fdService, scheduler);
 
 app.get("/nba/normalizedOdds", async (req, res) => {
   const nbaNormalizedOdds = await getNbaNormalizedOdds(db);
@@ -69,13 +72,17 @@ app.listen(port, () => {
 // SIGINT happens when we stop the server (ctrl + c)
 process.on("SIGINT", async () => {
   console.log("Shutting down...");
+  scheduler.shutdown();
   await db.close();
+  await siaService.close();
   process.exit(0);
 });
 
 // SIGTERM happens when the server is killed or stopped
 process.on("SIGTERM", async () => {
   console.log("Shutting down...");
+  scheduler.shutdown();
   await db.close();
+  await siaService.close();
   process.exit(0);
 });
