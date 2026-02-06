@@ -34,14 +34,11 @@ export const upsertOdds = async (
 
 export const getNbaFixturesFromDb = async (
   db: Database,
-  date: string,
 ): Promise<any[]> => {
-  const result = await db.query(
-    /* SQL */ `
+  const result = await db.query(/* SQL */ `
         SELECT * FROM nba_fixtures
-        WHERE DATE(start_date) = $1`,
-    [date],
-  );
+        WHERE start_date >= NOW()
+        AND start_date <= NOW() + INTERVAL '24 hours'`);
   return result.rows;
 };
 
@@ -49,7 +46,7 @@ export const getNbaNormalizedOdds = async (
   db: Database,
 ): Promise<OddsSnapshot[]> => {
   const result = await db.query(/* SQL */ `SELECT * FROM nba_odds_snapshots`);
-  
+
   return result.rows.map((row) => ({
     fixtureId: row.fixture_id,
     oddsData: JSON.parse(row.odds_data),

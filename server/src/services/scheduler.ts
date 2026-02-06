@@ -56,10 +56,8 @@ export const initDailyScheduler = async (
 ) => {
   const job = cron.schedule("0 6-23 * * *", async () => {
     try {
-      // Find out the date today
-      const dateToday = new Date().toISOString().split("T")[0];
       // Check if we already have the fixtures today on db
-      const existingFixturesFromDb = await getNbaFixturesFromDb(db, dateToday);
+      const existingFixturesFromDb = await getNbaFixturesFromDb(db);
 
       // Just do nothing if we already have the fixtures on db
       if (existingFixturesFromDb.length > 0) {
@@ -95,10 +93,9 @@ const initScrapingScheduler = async (
   fdService: FanduelOddsApiService,
   scheduler: Scheduler,
 ) => {
-  const dateToday = new Date().toISOString().split("T")[0];
 
   try {
-    const fixturesFromDb = await getNbaFixturesFromDb(db, dateToday);
+    const fixturesFromDb = await getNbaFixturesFromDb(db);
 
     // Skip scraping scheduling if no games today
     if (fixturesFromDb.length === 0) {
