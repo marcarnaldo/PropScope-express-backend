@@ -177,7 +177,7 @@ const removeVig = (overOdds: number, underOdds: number): [number, number] => {
   const overImplied = toImpliedProbability(overOdds);
   const underImplied = toImpliedProbability(underOdds);
 
-  // Trying to find the a value that will make the sum of both odds equal to 1 or 100%, removing the vig
+  // Trying to find the a value that will make the sum of both odds approximately 1
   // We are guessing the middle of whatever range is left. This is like binary search. Halving the search each iteration.
   let lo = 0,
     hi = 10; // Set hi to 10 initially to handle extreme odds,
@@ -188,7 +188,7 @@ const removeVig = (overOdds: number, underOdds: number): [number, number] => {
     else hi = mid;
   }
 
-  // k is the power that will make the odds equal to 1 or 100%, thus removing the vig
+  // k is the power that will make the odds approximately 1, thus removing the vig
   const k = (lo + hi) / 2;
 
   return [Math.pow(overImplied, k), Math.pow(underImplied, k)];
