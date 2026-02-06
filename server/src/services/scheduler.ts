@@ -51,6 +51,8 @@ export class Scheduler {
 export const initDailyFixtureFetcher = async (
   db: Database,
   siaService: SiaApiService,
+  fdService: FanduelOddsApiService,
+  scheduler: Scheduler,
 ) => {
   const job = cron.schedule("0 6-23 * * *", async () => {
     try {
@@ -78,6 +80,8 @@ export const initDailyFixtureFetcher = async (
         await upsertFixture(db, fixture.id, fixture, fixture.startDate);
       }
 
+      await initScrapingScheduler(db, siaService, fdService, scheduler)
+
     } catch (error) {
       const errorMessage = getErrorMessage(error);
       console.error("Hourly fixture fetch failed:", errorMessage);
@@ -85,7 +89,7 @@ export const initDailyFixtureFetcher = async (
   });
 };
 
-export const initScrapingScheduler = async (
+const initScrapingScheduler = async (
   db: Database,
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,

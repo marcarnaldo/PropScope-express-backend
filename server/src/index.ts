@@ -6,7 +6,6 @@ import { Database } from "./db/database";
 import { initNbaSchema } from "./db/schemas";
 import {
   initDailyFixtureFetcher,
-  initScrapingScheduler,
   Scheduler,
 } from "./services/scheduler";
 import { getNbaNormalizedOdds } from "./db/nbaRepositories";
@@ -56,9 +55,7 @@ await siaService.initialize();
 const fdService = new FanduelOddsApiService();
 const scheduler = new Scheduler();
 
-await initDailyFixtureFetcher(db, siaService);
-/* initScrapingScheduler only runs once at startup. If the server starts before fixtures are fetched (the daily fetcher hasn't found games yet), the scraping scheduler will see 0 fixtures and skip. There's no mechanism to re-trigger it once fixtures arrive. */
-await initScrapingScheduler(db, siaService, fdService, scheduler);
+await initDailyFixtureFetcher(db, siaService, fdService, scheduler);
 
 app.get("/nba/normalizedOdds", async (req, res) => {
   const nbaNormalizedOdds = await getNbaNormalizedOdds(db);
