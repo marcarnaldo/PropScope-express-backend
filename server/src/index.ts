@@ -1,14 +1,7 @@
 import express from "express";
 import "dotenv/config";
 import { SiaApiService } from "./api/siaApi";
-import { SIA_URLS } from "./config/siaConstants";
-import fs from "fs/promises";
 import { FanduelOddsApiService } from "./api/oddsApi";
-import {
-  aggregateSiaAndFdOdds,
-  filterSameLines,
-  normalizeOdds,
-} from "./services/oddsAggregator";
 import { Database } from "./db/database";
 import { initNbaSchema } from "./db/schemas";
 import {
