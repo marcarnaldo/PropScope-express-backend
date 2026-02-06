@@ -4,11 +4,11 @@ import { SiaApiService } from "./api/siaApi";
 import { FanduelOddsApiService } from "./api/oddsApi";
 import { Database } from "./db/database";
 import { initNbaSchema } from "./db/schemas";
+import { initDailyScheduler, Scheduler } from "./services/scheduler";
 import {
-  initDailyScheduler,
-  Scheduler,
-} from "./services/scheduler";
-import { getNbaNormalizedOdds } from "./db/nbaRepositories";
+  getNbaFixturesFromDb,
+  getNbaNormalizedOdds,
+} from "./db/nbaRepositories";
 
 const app = express();
 const port = process.env.PORT;
@@ -60,6 +60,11 @@ await initDailyScheduler(db, siaService, fdService, scheduler);
 app.get("/nba/normalizedOdds", async (req, res) => {
   const nbaNormalizedOdds = await getNbaNormalizedOdds(db);
   res.json(nbaNormalizedOdds);
+});
+
+app.get("/nba/games", async (req, res) => {
+  const games = await getNbaFixturesFromDb(db);
+  res.json(games);
 });
 
 app.listen(port, () => {
