@@ -5,7 +5,7 @@ import { FanduelOddsApiService } from "./api/oddsApi";
 import { Database } from "./db/database";
 import { initNbaSchema } from "./db/schemas";
 import {
-  initDailyFixtureFetcher,
+  initDailyScheduler,
   Scheduler,
 } from "./services/scheduler";
 import { getNbaNormalizedOdds } from "./db/nbaRepositories";
@@ -55,7 +55,7 @@ await siaService.initialize();
 const fdService = new FanduelOddsApiService();
 const scheduler = new Scheduler();
 
-await initDailyFixtureFetcher(db, siaService, fdService, scheduler);
+await initDailyScheduler(db, siaService, fdService, scheduler);
 
 app.get("/nba/normalizedOdds", async (req, res) => {
   const nbaNormalizedOdds = await getNbaNormalizedOdds(db);

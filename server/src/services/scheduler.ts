@@ -48,7 +48,7 @@ export class Scheduler {
   }
 }
 
-export const initDailyFixtureFetcher = async (
+export const initDailyScheduler = async (
   db: Database,
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
