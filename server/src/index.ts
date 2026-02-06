@@ -1,28 +1,68 @@
 import express from "express";
 import "dotenv/config";
-import { getFixtures, initBrowser } from "./api/siaApi.ts";
+import { SiaApiService } from "./api/siaApi";
+import { SIA_URLS } from "./config/siaConstants";
+import fs from "fs/promises";
+import { FanduelOddsApiService } from "./api/oddsApi";
 import {
-  initFetchAndSaveNewFixtureToDb,
-  initMinuteScrapingScheduler,
-} from "./services/scheduler.ts";
-
-import { Database } from "./db/database.ts";
-import { initNbaSchema } from "./db/schemas.ts";
-import { getNbaNormalizedOdds } from "./db/nbaRepositories.ts";
+  aggregateSiaAndFdOdds,
+  filterSameLines,
+  normalizeOdds,
+} from "./services/oddsAggregator";
+import { Database } from "./db/database";
+import { initNbaSchema } from "./db/schemas";
+import {
+  initDailyFixtureFetcher,
+  initScrapingScheduler,
+} from "./services/scheduler";
+import { getNbaNormalizedOdds } from "./db/nbaRepositories";
 
 const app = express();
 const port = process.env.PORT;
 
-// Open the browser and tabs
-await initBrowser();
+// const main = async () => {
+//   const siaApiService = new SiaApiService();
+//   await siaApiService.initialize(); // ← Missing this?
+//   const fdApiService = new FanduelOddsApiService();
+//   const fixtures = await siaApiService.getFixtures(SIA_URLS.nba.fixtures);
 
-// Connect to db
+//   fixtures.forEach(async (fixture: any) => {
+//     const awayTeam = fixture.participants[0].name.value;
+//     const homeTeam = fixture.participants[1].name.value;
+//     const markets = await siaApiService.getSiaPlayerOverUnders(
+//       fixture.id,
+//       awayTeam,
+//       homeTeam,
+//       fixture,
+//     );
+
+//     const aggregateOdds = await aggregateSiaAndFdOdds(
+//       fixture.id,
+//       fixture,
+//       siaApiService,
+//       fdApiService,
+//     );
+
+//     const filteredSameLine = filterSameLines(aggregateOdds);
+//     const normalizedOdds = normalizeOdds(filteredSameLine);
+
+//     await fs.writeFile(
+//       `normalizedOdds_${awayTeam}_vs_${homeTeam}.json`,
+//       JSON.stringify(normalizedOdds, null, 2),
+//     );
+//   });
+// };
+
+// await main();
+
 const db = Database.getInstance();
-// Create the tables
 await initNbaSchema(db);
+const siaService = new SiaApiService();
+await siaService.initialize();
+const fdService = new FanduelOddsApiService();
 
-initFetchAndSaveNewFixtureToDb(db);
-initMinuteScrapingScheduler(db);
+await initDailyFixtureFetcher(db, siaService);
+await initScrapingScheduler(db, siaService, fdService);
 
 app.get("/nba/normalizedOdds", async (req, res) => {
   const nbaNormalizedOdds = await getNbaNormalizedOdds(db);
