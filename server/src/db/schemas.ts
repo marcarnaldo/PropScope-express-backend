@@ -5,8 +5,8 @@ export const initNbaSchema = async (db: Database) => {
     CREATE TABLE IF NOT EXISTS nba_fixtures (
       fixture_id INTEGER PRIMARY KEY,
       fixture_data JSONB NOT NULL,
-      start_date TIMESTAMP NOT NULL,
-      created_at TIMESTAMP DEFAULT NOW()
+      start_date TIMESTAMPTZ NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
 
