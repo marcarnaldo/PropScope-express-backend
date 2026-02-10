@@ -62,7 +62,7 @@ export const initDailyScheduler = async (
 
       // Just do nothing if we already have the fixtures on db
       if (existingFixturesFromDb.length > 0) {
-        console.log("Fixtures already fetched for today, skipping...");
+        logger.info("Fixtures already fetched for today, skipping...");
         return;
       }
 
