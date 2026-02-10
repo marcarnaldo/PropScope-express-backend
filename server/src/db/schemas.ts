@@ -23,6 +23,6 @@ export const initNbaSchema = async (db: Database) => {
     CREATE INDEX IF NOT EXISTS idx_fixture_start_date 
     ON nba_fixtures(start_date)
   `);
-
-  console.log('Database schema initialized');
+  
+  logger.info('Database schema initialized');
 };

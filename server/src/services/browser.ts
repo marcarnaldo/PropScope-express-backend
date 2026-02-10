@@ -19,7 +19,7 @@ export class BrowserManager {
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        console.log(`[Attempt ${attempt}/${MAX_RETRIES}] Launching browser...`);
+        logger.info({ attempt, maxRetries: MAX_RETRIES }, "Attempting to launch browser")
 
         this.browser = await puppeteer.launch({
           headless: true,
