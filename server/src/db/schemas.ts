@@ -1,5 +1,5 @@
 import { Database } from "./database.ts";
-
+import { logger } from "../utils/errorHandling.ts";
 export const initNbaSchema = async (db: Database) => {
   await db.query(`
     CREATE TABLE IF NOT EXISTS nba_fixtures (
