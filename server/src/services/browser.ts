@@ -77,7 +77,7 @@ export class BrowserManager {
     return this.page;
   }
 
-  private async isHealthy(): Promise<boolean> {
+  public async isHealthy(): Promise<boolean> {
     // return false is there is no page or browser yet
     if (!this.browser || !this.page) return false;
 

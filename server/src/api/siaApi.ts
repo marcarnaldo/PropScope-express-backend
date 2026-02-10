@@ -186,4 +186,8 @@ export class SiaApiService {
   public async close(): Promise<void> {
     await this.browserManager.closeBrowser();
   }
+
+  public async isBrowserHealthy(): Promise<boolean> {
+    return this.browserManager.isHealthy();
+  }
 }

@@ -10,6 +10,7 @@ import {
   getNbaFixturesFromDb,
   getNbaNormalizedOdds,
 } from "./db/nbaRepositories";
+import { uptime } from "node:process";
 
 const app = express();
 const port = process.env.PORT;
@@ -68,13 +69,38 @@ app.get("/nba/games", async (req, res) => {
   res.json(games);
 });
 
+app.get("/health", async (req, res) => {
+  let dbStatus: string;
+  try {
+    await db.query("SELECT 1");
+    dbStatus = "connected";
+  } catch (error) {
+    dbStatus = "disconnected";
+  }
+
+  const browserStatus = (await siaService.isBrowserHealthy())
+    ? "alive"
+    : "dead";
+
+  const isHealthy = dbStatus === "connected" && browserStatus === "alive";
+
+  const response = {
+    status: isHealthy ? "healthy" : "unhealthy",
+    database: dbStatus,
+    browser: browserStatus,
+    uptime: Math.floor(process.uptime()),
+  };
+
+  res.status(isHealthy ? 200 : 503).json(response);
+});
+
 app.listen(port, () => {
-  logger.info({ port }, "server running in port")
+  logger.info({ port }, "server running in port");
 });
 
 // SIGINT happens when we stop the server (ctrl + c)
 process.on("SIGINT", async () => {
-  logger.info("Server shutting down")
+  logger.info("Server shutting down");
   scheduler.shutdown();
   await db.close();
   await siaService.close();
@@ -83,7 +109,7 @@ process.on("SIGINT", async () => {
 
 // SIGTERM happens when the server is killed or stopped
 process.on("SIGTERM", async () => {
-  logger.info("Server shutting down")
+  logger.info("Server shutting down");
   scheduler.shutdown();
   await db.close();
   await siaService.close();
