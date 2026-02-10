@@ -1,6 +1,7 @@
 import { SiaApiService } from "../api/siaApi.ts";
 import { FanduelOddsApiService } from "../api/oddsApi.ts";
 import { getErrorMessage } from "../utils/errorHandling.ts";
+import { logger } from "../utils/errorHandling.ts";
 
 export const aggregateSiaAndFdOdds = async (
   fixtureId: number,
@@ -49,9 +50,8 @@ export const aggregateSiaAndFdOdds = async (
     return aggregatedOdds;
   } catch (error) {
     const errorMessage = getErrorMessage(error);
-    console.error(
-      `Failed to aggregate odds for fixture ${fixtureId}: ${errorMessage}`,
-    );
+    logger.error({ fixtureId, error: errorMessage}, "Failed to aggregate odds of both Fanduel and Sportsinteraction")
+
     return null;
   }
 };

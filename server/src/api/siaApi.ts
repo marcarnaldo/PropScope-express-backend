@@ -1,3 +1,4 @@
+import { logger } from "../utils/errorHandling.ts";
 import {
   PROP_MARKETS_SIAAPI,
   SIA_URLS,
@@ -35,12 +36,19 @@ export class SiaApiService {
         return events.fixtures;
       } catch (error) {
         lastError = error;
-
+        const errorMessage = getErrorMessage(error);
         if (attempt === MAX_RETRIES) break;
 
         const waitTime = Math.pow(2, attempt) * 1000;
-        console.warn(
-          `[Retry ${attempt}/${MAX_RETRIES}] getFixtures failed. Retrying in ${waitTime}ms.`,
+
+        logger.warn(
+          {
+            attempt,
+            maxRetries: MAX_RETRIES,
+            error: errorMessage,
+            waitMs: waitTime,
+          },
+          "getFixtures failed, retrying",
         );
         await new Promise((resolve) => setTimeout(resolve, waitTime));
       }
@@ -68,13 +76,21 @@ export class SiaApiService {
         return events.fixture; // instead of fixtures, we only need the fixture (1 specific event)
       } catch (error) {
         lastError = error;
-
+        const errorMessage = getErrorMessage(error);
         if (attempt === MAX_RETRIES) break;
 
         const waitTime = Math.pow(2, attempt) * 1000;
-        console.warn(
-          `[Retry ${attempt}/${MAX_RETRIES}] getFixtures failed. Retrying in ${waitTime}ms.`,
+
+        logger.warn(
+          {
+            attempt,
+            maxRetries: MAX_RETRIES,
+            error: errorMessage,
+            waitMs: waitTime,
+          },
+          "getSpecificFixture failed, retrying",
         );
+
         await new Promise((resolve) => setTimeout(resolve, waitTime));
       }
     }
@@ -140,9 +156,11 @@ export class SiaApiService {
       return propsByPlayer;
     } catch (error) {
       const errorMessage = getErrorMessage(error);
-      console.error(
-        `Failed to get SIA odds for fixture ${fixtureId} (${homeTeam} vs ${awayTeam}): ${errorMessage}`,
+      logger.error(
+        { fixtureId, homeTeam, awayTeam, error: errorMessage },
+        "getSiaOdds error, failed getting odds for SportsIntercation",
       );
+
       throw error;
     }
   }

@@ -1,5 +1,6 @@
 import express from "express";
 import "dotenv/config";
+import { logger } from "./utils/errorHandling";
 import { SiaApiService } from "./api/siaApi";
 import { FanduelOddsApiService } from "./api/oddsApi";
 import { Database } from "./db/database";
@@ -68,12 +69,12 @@ app.get("/nba/games", async (req, res) => {
 });
 
 app.listen(port, () => {
-  console.log(`Server Running on Port ${port}`);
+  logger.info({ port }, "server running in port")
 });
 
 // SIGINT happens when we stop the server (ctrl + c)
 process.on("SIGINT", async () => {
-  console.log("Shutting down...");
+  logger.info("Server shutting down")
   scheduler.shutdown();
   await db.close();
   await siaService.close();
@@ -82,7 +83,7 @@ process.on("SIGINT", async () => {
 
 // SIGTERM happens when the server is killed or stopped
 process.on("SIGTERM", async () => {
-  console.log("Shutting down...");
+  logger.info("Server shutting down")
   scheduler.shutdown();
   await db.close();
   await siaService.close();

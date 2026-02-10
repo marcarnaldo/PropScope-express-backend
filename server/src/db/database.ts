@@ -1,5 +1,6 @@
 import pg from "pg";
 import "dotenv/config";
+import { logger } from "../utils/errorHandling";
 
 export class Database {
   // Ensuring only 1 db is made throughout the entire project
@@ -19,8 +20,8 @@ export class Database {
       // connectionTimeoutMillis: 2000,
     });
 
-    this.pool.on("error", (err) => {
-      console.error("Unexpected database error", err);
+    this.pool.on("error", (err: NodeJS.ErrnoException & { detail?: string }) => {
+      logger.error({ error: err.message, code: err.code,  detail: err.detail}, "Unexpected database error");
     });
   }
 
@@ -39,6 +40,6 @@ export class Database {
 
   public async close(): Promise<void> {
     await this.pool.end();
-    console.log("Database connection closed");
+    logger.info("Database connection closed");
   }
 }

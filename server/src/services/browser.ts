@@ -2,6 +2,7 @@ import { Page, Browser } from "puppeteer";
 import puppeteer from "puppeteer-extra";
 import { getErrorMessage, MAX_RETRIES } from "../utils/errorHandling";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
+import { logger } from "../utils/errorHandling";
 
 puppeteer.use(StealthPlugin());
 
@@ -32,7 +33,7 @@ export class BrowserManager {
           timeout: 30000, // We wait 30s for the page to respond. If not, we retry
         });
 
-        console.log("Browser initialized successfully");
+        logger.info("Browser initialized successfully")
         return;
       } catch (error) {
         lastError = error;
@@ -43,12 +44,11 @@ export class BrowserManager {
         await this.closeBrowser();
 
         if (attempt === MAX_RETRIES) break;
-
         // Exponential backoff
         const waitTime = Math.pow(2, attempt) * 1000;
-        console.warn(
-          `[Retry ${attempt}/${MAX_RETRIES}] initializeBrowser failed: ${errorMessage}. Retrying in ${waitTime}ms.`,
-        );
+
+        logger.warn({ attempt, maxRetries: MAX_RETRIES, error: errorMessage, waitMs: waitTime}, "failed to initialize a browser, retrying")
+
         await new Promise((resolve) => setTimeout(resolve, waitTime));
       }
     }
@@ -61,6 +61,7 @@ export class BrowserManager {
   public async closeBrowser(): Promise<void> {
     if (!this.browser) return;
 
+    
     // Close and clean the browser instance even if it throws an error
     await this.browser.close().catch(() => {});
     this.browser = null;
@@ -98,14 +99,14 @@ export class BrowserManager {
           "Cannot recover: No URL stored. Call initializeBrowser() first.",
         );
       }
-
-      console.warn("Browser unhealthy, attempting recovery...");
+      
+      logger.warn("Browser unhealthy, attempting recovery...");
       
       // if browser is not responsive, close it and clean the pages and browser
       await this.closeBrowser();
       // We initialize the browser and page again
       await this.initializeBrowser(this.lastUrl);
-      console.log("Browser recovery successful");
+      logger.info("Browser recovery successful");
     }
   }
 }
