@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { logger } from "../utils/errorHandling.ts";
 import {
   ANCHOR_BOOK,
   PROP_MARKETS_ODDSAPI,
@@ -30,9 +31,16 @@ export class FanduelOddsApiService {
 
         // Exponential backoff 2^attempt seconds
         const waitTime = Math.pow(2, attempt) * 1000; //
-        console.warn(
-          `[Retry ${attempt}/${MAX_RETRIES}] getFanduelEvents failed: ${errorMessage}. Retrying in ${waitTime}ms.`,
+        logger.warn(
+          {
+            attempt,
+            maxRetries: MAX_RETRIES,
+            error: errorMessage,
+            waitMs: waitTime,
+          },
+          "getFanduelEvents failed, retrying",
         );
+
         await new Promise((resolve) => setTimeout(resolve, waitTime));
       }
     }
@@ -66,8 +74,9 @@ export class FanduelOddsApiService {
           );
 
         if (maxMarkets < marketPropsLength)
-          console.warn(
-            `Only ${remainingCredits} credits left, but need ${marketPropsLength} credits to get markets. Reducing to ${remainingCredits} markets instead.`,
+          logger.warn(
+            { remainingCredits, requiredCredits: marketPropsLength },
+            "Insufficient API credits, reducing markets",
           );
 
         const marketsToFetch = markets.slice(0, maxMarkets).join(",");
@@ -83,10 +92,10 @@ export class FanduelOddsApiService {
         const lastUsedCredits = parseInt(
           res.headers.get("x-requests-last") || "0",
         );
-
-        console.log(`Remaining credits: ${remainingCredits}`);
-        console.log(`Total consumption ${usedCredits}/${totalCredits}`);
-        console.log(`Number of credits that just used: ${lastUsedCredits}`);
+        logger.info(
+          { remainingCredits, usedCredits, totalCredits, lastUsedCredits },
+          "API credit status",
+        );
 
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 
@@ -99,9 +108,16 @@ export class FanduelOddsApiService {
         if (attempt === MAX_RETRIES) break;
 
         // Exponential backoff 2^attempt seconds
-        const waitTime = Math.pow(2, attempt) * 1000; //
-        console.warn(
-          `[Retry ${attempt}/${MAX_RETRIES}] getPlayerProps failed: ${errorMessage}. Retrying in ${waitTime}ms.`,
+        const waitTime = Math.pow(2, attempt) * 1000;
+
+        logger.warn(
+          {
+            attempt,
+            maxRetries: MAX_RETRIES,
+            error: errorMessage,
+            waitMs: waitTime,
+          },
+          "getPlayerProps for fanduel failed, retrying",
         );
         await new Promise((resolve) => setTimeout(resolve, waitTime));
       }
@@ -170,10 +186,12 @@ export class FanduelOddsApiService {
 
       return propsByPlayer;
     } catch (error) {
-      console.error(
-        `Failed to get FanDuel odds for ${homeTeam} vs ${awayTeam}:`,
-        getErrorMessage(error),
+      const errorMessage = getErrorMessage(error);
+      logger.error(
+        { homeTeam, awayTeam, error: errorMessage },
+        "Failed to get fanduel odds",
       );
+
       return null;
     }
   }
