@@ -1,3 +1,10 @@
+/**
+ * Database Service
+ *
+ * Singleton PostgreSQL connection pool. Ensures only one pool exists
+ * throughout the application, reusing connections for all queries.
+ */
+
 import pg from "pg";
 import "dotenv/config";
 import { logger } from "../utils/errorHandling";
@@ -34,7 +41,7 @@ export class Database {
     return Database.instance;
   }
 
-  public async query(sql: string, params?: any[]): Promise<pg.QueryResult> {
+  public async query(sql: string, params?: (string | number)[]): Promise<pg.QueryResult> {
     return this.pool.query(sql, params);
   }
 

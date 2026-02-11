@@ -1,12 +1,26 @@
-import { Fixture, OddsSnapshot } from "../config/interfaces.ts";
+/**
+ * NBA Repositories
+ *
+ * Database access layer for NBA fixtures and odds snapshots.
+ * All SQL queries for reading/writing fixture and odds data live here.
+ */
+
+import {
+  Fixture,
+  FixtureRow,
+  NormalizedOdds,
+  OddsSnapshot,
+  SiaFixture,
+} from "../config/types.ts";
 import { Database } from "./database.ts";
 
+/** Inserts a new fixture or updates an existing one if the fixture_id already exists. */
 export const upsertFixture = async (
   db: Database,
   fixtureId: number,
-  fixtureData: any,
+  fixtureData: SiaFixture,
   startDate: string,
-) => {
+): Promise<void> => {
   const awayTeam = fixtureData.participants[0].name.value;
   const homeTeam = fixtureData.participants[1].name.value;
 
@@ -20,11 +34,12 @@ export const upsertFixture = async (
   );
 };
 
+/** Updates the status of a fixture (e.g. "open" -> "close"). */
 export const updateFixtureStatus = async (
   db: Database,
   fixtureId: number,
   status: string,
-) => {
+): Promise<void> => {
   await db.query(
     /* SQL */ `
     UPDATE nba_fixtures SET status = $2 WHERE fixture_id = $1`,
@@ -32,11 +47,12 @@ export const updateFixtureStatus = async (
   );
 };
 
+/** Inserts a point-in-time snapshot of normalized odds for a fixture. */
 export const insertOddsSnapshot = async (
   db: Database,
   fixtureId: number,
-  oddsData: any,
-) => {
+  oddsData: NormalizedOdds,
+): Promise<void> => {
   await db.query(
     /* SQL */ `
     INSERT INTO nba_odds_snapshots (fixture_id, odds_data)
@@ -45,6 +61,7 @@ export const insertOddsSnapshot = async (
   );
 };
 
+/** Returns all fixtures scheduled for today. */
 export const getNbaFixturesFromDb = async (
   db: Database,
 ): Promise<Fixture[]> => {
@@ -65,7 +82,8 @@ export const getNbaFixturesFromDb = async (
   }));
 };
 
-export const getScrapableFixtures = async (db: Database): Promise<any[]> => {
+/** Returns all open fixtures for today that are eligible for scraping. */
+export const getScrapableFixtures = async (db: Database): Promise<FixtureRow[]> => {
   const result = await db.query(
     /* SQL */
     `
@@ -79,6 +97,7 @@ export const getScrapableFixtures = async (db: Database): Promise<any[]> => {
   return result.rows;
 };
 
+/** Returns the most recent odds snapshot for each fixture. */
 export const getLatestNbaNormalizedOdds = async (
   db: Database,
 ): Promise<OddsSnapshot[]> => {
@@ -99,6 +118,7 @@ export const getLatestNbaNormalizedOdds = async (
   }));
 };
 
+/** Returns all odds snapshots for a fixture in chronological order, for tracking line movement. */
 export const getOddsHistory = async (
   db: Database,
   fixtureId: number,
@@ -120,7 +140,8 @@ export const getOddsHistory = async (
   }));
 };
 
-export const markStartedFixtures = async (db: Database) => {
+/** Marks all fixtures whose start time has passed as close. Safety net for missed game starts. */
+export const markStartedFixtures = async (db: Database): Promise<void> => {
   await db.query(
     /* SQL */
     `UPDATE nba_fixtures 

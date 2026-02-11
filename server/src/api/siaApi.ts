@@ -1,3 +1,12 @@
+/**
+ * Sports Interaction (SIA) API Service
+ *
+ * Scrapes player prop odds from SIA using a headless browser (Puppeteer).
+ * SIA requires browser cookies/session to access their internal API,
+ * so we use puppeteer-stealth to bypass Cloudflare protection.
+ * All requests are made through the browser's page context.
+ */
+
 import { logger } from "../utils/errorHandling.ts";
 import {
   PROP_MARKETS_SIAAPI,
@@ -6,6 +15,14 @@ import {
 } from "../config/siaConstants.ts";
 import { BrowserManager } from "../services/browser.ts";
 import { getErrorMessage, MAX_RETRIES } from "../utils/errorHandling.ts";
+import {
+  SiaFixture,
+  SiaMarket,
+  SiaMarketOption,
+  SiaFixtureParticipant,
+  PlayerPropsResponse,
+  PropOdds,
+} from "../config/types.ts";
 
 export class SiaApiService {
   private browserManager: BrowserManager;
@@ -15,11 +32,13 @@ export class SiaApiService {
     this.browserManager = new BrowserManager();
   }
 
-  public async initialize() {
+  /** Launches the headless browser and navigates to SIA to establish cookies/session. */
+  public async initialize(): Promise<void> {
     await this.browserManager.initializeBrowser(this.SIA_MAIN_URL);
   }
 
-  public async getFixtures(eventsUrl: string): Promise<any[]> {
+  /** Fetches all upcoming fixtures (games) for a given sport from SIA's internal API. */
+  public async getFixtures(eventsUrl: string): Promise<SiaFixture[]> {
     let lastError;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -59,7 +78,8 @@ export class SiaApiService {
     );
   }
 
-  private async getSpecificFixture(specificEventUrl: string): Promise<any> {
+  /** Fetches a single fixture's full data including all option markets (player props, spreads, etc). */
+  private async getSpecificFixture(specificEventUrl: string): Promise<SiaFixture> {
     let lastError;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -100,36 +120,43 @@ export class SiaApiService {
     );
   }
 
+  /**
+   * Fetches and parses player prop odds from SIA for a specific fixture.
+   * Filters markets to only "Player specials" that match our target prop types,
+   * then organizes by player name and prop type.
+   */
   public async getSiaOdds(
     fixtureId: number,
     homeTeam: string,
     awayTeam: string,
-    fixture: any,
-  ): Promise<any> {
+    fixture: SiaFixture,
+  ): Promise<PlayerPropsResponse> {
     try {
       const specificFixture = await this.getSpecificFixture(
         SIA_URLS.nba.markets(fixtureId),
       );
 
       const filteredMarket = specificFixture.optionMarkets?.filter(
-        (market: any) =>
+        (market: SiaMarket) =>
           // Check if the market has a templateCategory of "Player specials" because the ones that I want belongs here
           market.templateCategory?.name?.value === "Player specials" &&
           // We must only get the ones with the same patterns as in the PROP_MARKETS_SIAAPI since that is all the over unders that I want
           PROP_MARKETS_SIAAPI.NBA.some((pattern) =>
             market.name.value.includes(pattern),
           ),
-      );
+      ) ?? [];
 
-      const propsByPlayer = {
+      const propsByPlayer: PlayerPropsResponse = {
         ht: homeTeam,
         at: awayTeam,
-        props: {} as Record<string, any>,
+        props: {},
       };
 
-      filteredMarket.forEach((market: any) => {
+      filteredMarket.forEach((market: SiaMarket) => {
         // This JSON is made up of player props so the market.id is the participant ID a.k.a the player's id.
         const playerName = this.getPlayerShortName(fixture, market.player1Id);
+        if (!playerName) return;
+
         const line = parseFloat(market.attr);
 
         // Example: Points, Rebound, etc.
@@ -141,15 +168,21 @@ export class SiaApiService {
           propsByPlayer.props[playerName] = {};
         }
 
+        const overOdds = market.options.find(
+          (option: SiaMarketOption) => option.totalsPrefix === "Over",
+        )?.price.americanOdds;
+
+        const underOdds = market.options.find(
+          (option: SiaMarketOption) => option.totalsPrefix === "Under",
+        )?.price.americanOdds;
+
+        if (overOdds === undefined || underOdds === undefined) return;
+
         // For each propType available to a player, we create an entry for it and fill it with odds of over and under
         propsByPlayer.props[playerName][propType] = {
           line,
-          over: market.options.find(
-            (option: any) => option.totalsPrefix === "Over",
-          )?.price.americanOdds,
-          under: market.options.find(
-            (option: any) => option.totalsPrefix === "Under",
-          )?.price.americanOdds,
+          over: overOdds,
+          under: underOdds,
         };
       });
 
@@ -165,16 +198,18 @@ export class SiaApiService {
     }
   }
 
+  /** Resolves a participant ID to their short display name (e.g. "Jason Tatum"). */
   private getPlayerShortName = (
-    fixture: any,
+    fixture: SiaFixture,
     participantId: number,
-  ): string => {
+  ): string | undefined => {
     const player = fixture.participants?.find(
-      (participant: any) => participant.participantId === participantId,
+      (participant: SiaFixtureParticipant) => participant.participantId === participantId,
     );
     return player?.name.short;
   };
 
+  /** Maps a SIA market name string to our standardized prop type key (e.g. ": Points" -> "points"). */
   private getPropType = (marketName: string): string | null => {
     const match = Object.keys(PROP_TYPE_MAP).find((pattern) =>
       marketName.includes(pattern),

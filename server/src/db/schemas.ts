@@ -1,6 +1,14 @@
+/**
+ * Database Schema Initialization
+ *
+ * Creates the required tables and indexes for storing NBA fixtures
+ * and odds snapshots. Uses IF NOT EXISTS so it's safe to run on every startup.
+ */
+
 import { Database } from "./database.ts";
 import { logger } from "../utils/errorHandling.ts";
-export const initNbaSchema = async (db: Database) => {
+
+export const initNbaSchema = async (db: Database): Promise<void> => {
   await db.query(/* SQL */`
     CREATE TABLE IF NOT EXISTS nba_fixtures (
       fixture_id INTEGER PRIMARY KEY,

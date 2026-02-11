@@ -1,3 +1,13 @@
+/**
+ * Scheduler Service
+ *
+ * Manages the lifecycle of odds scraping for NBA games.
+ * - Fetches fixtures from SIA hourly (6AM-11PM)
+ * - Schedules scraping to start 2 hours before each game
+ * - Scrapes odds every 5 minutes until game time
+ * - Stops scraping and marks fixture as "close" when the game starts
+ */
+
 import schedule from "node-schedule";
 import cron from "node-cron";
 import { logger } from "../utils/errorHandling.ts";
@@ -18,6 +28,7 @@ import {
   markStartedFixtures,
 } from "../db/nbaRepositories.ts";
 import { FanduelOddsApiService } from "../api/oddsApi.ts";
+import { SiaFixture, FixtureRow } from "../config/types.ts";
 
 export class Scheduler {
   private activeJobs: schedule.Job[];
@@ -60,27 +71,35 @@ export class Scheduler {
   }
 }
 
+/**
+ * Initializes the daily scheduler. Runs immediately on startup to catch up
+ * after any downtime, then runs hourly (6AM-11PM) to pick up reschedules or cancellations.
+ */
 export const initDailyScheduler = async (
   db: Database,
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
   scheduler: Scheduler,
-) => {
+): Promise<void> => {
   // Run as soon as server server starts so that if server shutdown, we can just fetch asap
   await fetchAndSchedule(db, siaService, fdService, scheduler)
   // We then run it hourly just to make sure we get any re-schedules, cancellations, etc.
   cron.schedule("0 6-23 * * *", () => fetchAndSchedule(db, siaService, fdService, scheduler));
 };
 
+/**
+ * Fetches today's fixtures from SIA, saves them to the database,
+ * and kicks off the scraping scheduler for each game.
+ */
 const fetchAndSchedule = async (
   db: Database,
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
   scheduler: Scheduler,
-) => {
+): Promise<void> => {
   try {
     await markStartedFixtures(db);
-    const fixtures = await siaService.getFixtures(SIA_URLS.nba.fixtures);
+    const fixtures: SiaFixture[] = await siaService.getFixtures(SIA_URLS.nba.fixtures);
 
     // Just exit if there are no NBA games today
     if (fixtures.length === 0) {
@@ -103,14 +122,19 @@ const fetchAndSchedule = async (
   }
 };
 
+/**
+ * For each open fixture today, schedules a scraper to start 2 hours before game time.
+ * If the scraping window is already active (less than 2 hours to game), starts immediately.
+ * Skips fixtures that are already being scraped.
+ */
 const initScrapingScheduler = async (
   db: Database,
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
   scheduler: Scheduler,
-) => {
+): Promise<void> => {
   try {
-    const fixturesFromDb = await getScrapableFixtures(db);
+    const fixturesFromDb: FixtureRow[] = await getScrapableFixtures(db);
 
     // Skip scraping scheduling if no games today
     if (fixturesFromDb.length === 0) {
@@ -121,7 +145,7 @@ const initScrapingScheduler = async (
     const timeNow = new Date();
 
     // For each game, schedule a scraper every 5 minute to save odds to db
-    fixturesFromDb.forEach((fixtureRow: any) => {
+    fixturesFromDb.forEach((fixtureRow: FixtureRow) => {
       const fixtureId = fixtureRow.fixture_id;
 
       // Check if the fixture is already being scraped. If so, we just skip it.
@@ -169,14 +193,18 @@ const initScrapingScheduler = async (
   }
 };
 
+/**
+ * Starts the 5-minute interval scraper for a fixture.
+ * Also schedules a job at game time to stop scraping and mark the fixture as closed.
+ */
 const startScraping = (
   db: Database,
-  fixtureRow: any,
+  fixtureRow: FixtureRow,
   interval: number,
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
   scheduler: Scheduler,
-) => {
+): void => {
   const fixtureId = fixtureRow.fixture_id;
   const gameTime = new Date(fixtureRow.start_date);
 
@@ -184,7 +212,7 @@ const startScraping = (
     await updateOddsToDb(
       db,
       fixtureId,
-      JSON.parse(fixtureRow.raw_data),
+      JSON.parse(fixtureRow.raw_data) as SiaFixture,
       siaService,
       fdService,
     );
@@ -201,13 +229,17 @@ const startScraping = (
   logger.info({ fixtureId, gameTime }, "Started scraping fixture");
 };
 
+/**
+ * Fetches odds from both SIA and FanDuel, filters to matching lines,
+ * normalizes (removes vig), and saves the snapshot to the database.
+ */
 const updateOddsToDb = async (
   db: Database,
   fixtureId: number,
-  fixture: any,
+  fixture: SiaFixture,
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
-) => {
+): Promise<void> => {
   try {
     const aggregatedOdds = await aggregateSiaAndFdOdds(
       fixtureId,

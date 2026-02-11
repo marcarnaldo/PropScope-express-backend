@@ -1,14 +1,37 @@
+/**
+ * Odds Aggregator
+ *
+ * Merges player prop odds from SIA and FanDuel, filters to only matching lines,
+ * and normalizes by removing the vig to get true probabilities.
+ *
+ * Pipeline: aggregateSiaAndFdOdds → filterSameLines → normalizeOdds
+ */
+
 import { SiaApiService } from "../api/siaApi.ts";
 import { FanduelOddsApiService } from "../api/oddsApi.ts";
 import { getErrorMessage } from "../utils/errorHandling.ts";
 import { logger } from "../utils/errorHandling.ts";
+import {
+  AggregatedOdds,
+  AggregatedProp,
+  FilteredOdds,
+  NormalizedOdds,
+  PlayerPropsResponse,
+  PropOdds,
+  SiaFixture,
+} from "../config/types.ts";
 
+/**
+ * Fetches odds from both SIA and FanDuel for a given fixture,
+ * then merges them into a single object keyed by player and prop type.
+ * Only players found in both books are included.
+ */
 export const aggregateSiaAndFdOdds = async (
   fixtureId: number,
-  fixture: any,
+  fixture: SiaFixture,
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
-): Promise<any | null> => {
+): Promise<AggregatedOdds | null> => {
   const awayTeam = fixture.participants[0].name.value;
   const homeTeam = fixture.participants[1].name.value;
 
@@ -20,7 +43,7 @@ export const aggregateSiaAndFdOdds = async (
 
     if (!fdOdds || !siaOdds) return null;
 
-    const aggregatedOdds: any = {
+    const aggregatedOdds: AggregatedOdds = {
       ht: homeTeam,
       at: awayTeam,
       props: {},
@@ -35,14 +58,14 @@ export const aggregateSiaAndFdOdds = async (
       // Not all players in fd are present in sia. Sportsbooks do not usually have perfect 1-to-1 offerings
       if (!siaPlayerName) continue;
 
-      for (const [propType, fdProp] of Object.entries(playerProps as any)) {
+      for (const [propType, fdProp] of Object.entries(playerProps)) {
         aggregatePlayerProps(
           aggregatedOdds,
           siaOdds,
           playerName,
           siaPlayerName,
           propType,
-          fdProp as any,
+          fdProp,
         );
       }
     }
@@ -56,14 +79,18 @@ export const aggregateSiaAndFdOdds = async (
   }
 };
 
+/**
+ * Adds a single prop (e.g. points, rebounds) for a player into the aggregated odds object,
+ * combining the SIA and FD lines and odds.
+ */
 const aggregatePlayerProps = (
-  aggregatedOdds: any,
-  siaOdds: any,
+  aggregatedOdds: AggregatedOdds,
+  siaOdds: PlayerPropsResponse,
   playerName: string,
   siaPlayerName: string,
   propType: string,
-  fdProp: any,
-) => {
+  fdProp: PropOdds,
+): void => {
   const siaProp = siaOdds.props[siaPlayerName]?.[propType];
 
   // return if prop is not in SIA
@@ -86,8 +113,13 @@ const aggregatePlayerProps = (
   };
 };
 
-export const filterSameLines = (aggregatedData: any) => {
-  const filteredLines: any = {
+/**
+ * Filters aggregated odds to only keep props where SIA and FanDuel
+ * have the same line. Drops mismatched lines since comparing odds
+ * is only meaningful when the line is identical.
+ */
+export const filterSameLines = (aggregatedData: AggregatedOdds): FilteredOdds => {
+  const filteredLines: FilteredOdds = {
     homeTeam: aggregatedData.ht,
     awayTeam: aggregatedData.at,
     props: {},
@@ -96,8 +128,8 @@ export const filterSameLines = (aggregatedData: any) => {
   for (const [playerName, playerProps] of Object.entries(
     aggregatedData.props,
   )) {
-    for (const [propType, propData] of Object.entries(playerProps as any)) {
-      const prop = propData as any;
+    for (const [propType, propData] of Object.entries(playerProps)) {
+      const prop = propData as AggregatedProp;
 
       // Sportsbooks does not always have the same lines, we skip those
       if (prop.sia.line !== prop.fd.line) continue;
@@ -123,40 +155,44 @@ export const filterSameLines = (aggregatedData: any) => {
   return filteredLines;
 };
 
-export const normalizeOdds = (filteredLines: any) => {
-  const removedVig: any = {
+/**
+ * Removes the vig (juice) from both SIA and FanDuel odds to get
+ * the true implied probabilities. Uses power method (binary search)
+ * to find the exponent that makes probabilities sum to 1.
+ */
+export const normalizeOdds = (filteredLines: FilteredOdds): NormalizedOdds => {
+  const removedVig: NormalizedOdds = {
     homeTeam: filteredLines.homeTeam,
     awayTeam: filteredLines.awayTeam,
     props: {},
   };
 
   for (const [playerName, playerProps] of Object.entries(filteredLines.props)) {
-    for (const [propType, propData] of Object.entries(playerProps as any)) {
-      const prop = propData as any;
+    for (const [propType, propData] of Object.entries(playerProps)) {
       // Check if the player's name is in the props. If not, make an entry for it
       if (!removedVig.props[playerName]) removedVig.props[playerName] = {};
 
       // Calculate sia's over and under odds' true probability
       const [siaOverNoVig, siaUnderNoVig] = removeVig(
-        prop.siaOdds.over,
-        prop.siaOdds.under,
+        propData.siaOdds.over,
+        propData.siaOdds.under,
       );
       // Calculate fd's over and under odds' true probability
       const [fdOverNoVig, fdUnderNoVig] = removeVig(
-        prop.fdOdds.over,
-        prop.fdOdds.under,
+        propData.fdOdds.over,
+        propData.fdOdds.under,
       );
 
       // Populate the player with the type of prop and all the required information
       removedVig.props[playerName][propType] = {
-        line: prop.line,
+        line: propData.line,
         siaOdds: {
-          over: prop.siaOdds.over,
-          under: prop.siaOdds.under,
+          over: propData.siaOdds.over,
+          under: propData.siaOdds.under,
         },
         fdOdds: {
-          over: prop.fdOdds.over,
-          under: prop.fdOdds.under,
+          over: propData.fdOdds.over,
+          under: propData.fdOdds.under,
         },
         siaOddsNoVig: {
           over: siaOverNoVig,
@@ -173,6 +209,10 @@ export const normalizeOdds = (filteredLines: any) => {
   return removedVig;
 };
 
+/**
+ * Removes vig using the power method. Binary searches for exponent k
+ * such that P(over)^k + P(under)^k ≈ 1, giving fair no-vig probabilities.
+ */
 const removeVig = (overOdds: number, underOdds: number): [number, number] => {
   const overImplied = toImpliedProbability(overOdds);
   const underImplied = toImpliedProbability(underOdds);
@@ -194,7 +234,8 @@ const removeVig = (overOdds: number, underOdds: number): [number, number] => {
   return [Math.pow(overImplied, k), Math.pow(underImplied, k)];
 };
 
-const toImpliedProbability = (odds: number) => {
+/** Converts American odds to implied probability (0-1). */
+const toImpliedProbability = (odds: number): number => {
   if (odds < 0) return Math.abs(odds) / (Math.abs(odds) + 100);
   return 100 / (odds + 100);
 };

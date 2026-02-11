@@ -1,3 +1,12 @@
+/**
+ * Sports Interaction (SIA) Constants
+ *
+ * Configuration for scraping SIA's internal API.
+ * Defines player prop market patterns to match against,
+ * a mapping from SIA's naming convention to our standardized prop types,
+ * and the API URLs for each sport's fixtures and markets.
+ */
+
 export const PROP_MARKETS_SIAAPI = {
   NBA: [
     ": Points",

@@ -1,3 +1,11 @@
+/**
+ * Odds API Constants
+ *
+ * Configuration for The Odds API (https://the-odds-api.com).
+ * Defines supported sports, the anchor bookmaker (FanDuel),
+ * and which player prop markets to fetch per sport.
+ */
+
 export const SPORTS = {
   NBA: "basketball_nba",
   NFL: "americanfootball_nfl",

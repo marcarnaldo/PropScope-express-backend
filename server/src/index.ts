@@ -1,3 +1,11 @@
+/**
+ * Entry Point
+ *
+ * Initializes the database, browser, and scheduler services,
+ * then starts the Express server with API endpoints for fixtures and odds.
+ * Handles graceful shutdown on SIGINT/SIGTERM.
+ */
+
 import express from "express";
 import "dotenv/config";
 import { logger } from "./utils/errorHandling";

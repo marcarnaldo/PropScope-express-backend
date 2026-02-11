@@ -1,13 +1,24 @@
+/**
+ * Odds Aggregator Tests
+ *
+ * Tests the three stages of the odds pipeline:
+ * 1. filterSameLines - keeps only props where SIA and FD have matching lines
+ * 2. normalizeOdds - removes vig to get true probabilities
+ * 3. aggregateSiaAndFdOdds - merges players found in both books
+ */
+
 import { describe } from "node:test";
 import {
-  filterSameLines,
-  normalizeOdds,
-  aggregateSiaAndFdOdds,
-} from "./oddsAggregator";
+  AggregatedOdds,
+  FilteredOdds,
+} from "../config/types.ts";
+import { SiaApiService } from "../api/siaApi.ts";
+import { FanduelOddsApiService } from "../api/oddsApi.ts";
+import { aggregateSiaAndFdOdds, filterSameLines, normalizeOdds } from "./oddsAggregator.ts";
 
 describe("filterSameLines", () => {
   it("keeps props where SIA and FD lines match", () => {
-    const input = {
+    const input: AggregatedOdds = {
       ht: "Boston Celtics",
       at: "Miami Heat",
       props: {
@@ -30,7 +41,7 @@ describe("filterSameLines", () => {
   });
 
   it("drops props where lines differ", () => {
-    const input = {
+    const input: AggregatedOdds = {
       ht: "Boston Celtics",
       at: "Miami Heat",
       props: {
@@ -48,7 +59,7 @@ describe("filterSameLines", () => {
   });
 
   it("handles mix of matching and non-matching props for same player", () => {
-    const input = {
+    const input: AggregatedOdds = {
       ht: "Boston Celtics",
       at: "Miami Heat",
       props: {
@@ -74,7 +85,7 @@ describe("filterSameLines", () => {
 
 describe("normalizeOdds", () => {
   it("no-vig probabilities (sportsbooks' true probability) sum to approximately 1", () => {
-    const input = {
+    const input: FilteredOdds = {
       homeTeam: "Boston Celtics",
       awayTeam: "Miami Heat",
       props: {
@@ -97,7 +108,7 @@ describe("normalizeOdds", () => {
   });
 
   it("preserves original odds alongside no-vig odds", () => {
-    const input = {
+    const input: FilteredOdds = {
       homeTeam: "Boston Celtics",
       awayTeam: "Miami Heat",
       props: {
@@ -126,21 +137,21 @@ describe("normalizeOdds", () => {
 describe("aggregateSiaAndFdOdds", () => {
   const mockSiaService = {
     getSiaOdds: jest.fn(),
-  } as any;
+  } as unknown as SiaApiService;
 
   const mockFdService = {
     getFanduelOdds: jest.fn(),
-  } as any;
+  } as unknown as FanduelOddsApiService;
 
   it("includes only players found in both SIA and FD", async () => {
-    mockSiaService.getSiaOdds.mockResolvedValue({
+    (mockSiaService.getSiaOdds as jest.Mock).mockResolvedValue({
       props: {
         "Jason Tatum": { points: { line: 25.5, over: -110, under: -110 } },
         "Derrick White": { points: { line: 15.5, over: -105, under: -115 } },
       },
     });
 
-    mockFdService.getFanduelOdds.mockResolvedValue({
+    (mockFdService.getFanduelOdds as jest.Mock).mockResolvedValue({
       props: {
         "Jason Tatum": { points: { line: 25.5, over: -115, under: -105 } },
         "Tyler Herro": { points: { line: 20.5, over: -110, under: -110 } },
@@ -148,9 +159,11 @@ describe("aggregateSiaAndFdOdds", () => {
     });
 
     const fixture = {
+      id: 123,
+      startDate: "2025-01-01T00:00:00Z",
       participants: [
-        { name: { value: "Miami Heat" } },
-        { name: { value: "Boston Celtics" } },
+        { participantId: 1, name: { value: "Miami Heat", short: "MIA" } },
+        { participantId: 2, name: { value: "Boston Celtics", short: "BOS" } },
       ],
     };
 
@@ -161,8 +174,8 @@ describe("aggregateSiaAndFdOdds", () => {
       mockFdService,
     );
 
-    expect(result.props["Jason Tatum"]).toBeDefined(); // in both
-    expect(result.props["Derrick White"]).toBeUndefined(); // SIA only
-    expect(result.props["Tyler Herro"]).toBeUndefined(); // FD only
+    expect(result!.props["Jason Tatum"]).toBeDefined(); // in both
+    expect(result!.props["Derrick White"]).toBeUndefined(); // SIA only
+    expect(result!.props["Tyler Herro"]).toBeUndefined(); // FD only
   });
 });

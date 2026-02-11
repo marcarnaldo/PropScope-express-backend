@@ -1,3 +1,11 @@
+/**
+ * Browser Manager
+ *
+ * Manages a headless Chromium instance via Puppeteer with stealth plugin
+ * to bypass Cloudflare protection on SIA. Handles initialization, health checks,
+ * and automatic recovery if the browser becomes unresponsive.
+ */
+
 import { Page, Browser } from "puppeteer";
 import puppeteer from "puppeteer-extra";
 import { getErrorMessage, MAX_RETRIES } from "../utils/errorHandling";
@@ -13,6 +21,7 @@ export class BrowserManager {
 
   constructor() {}
 
+  /** Launches a headless browser and navigates to the given URL to establish session/cookies. */
   public async initializeBrowser(url: string): Promise<void> {
     this.lastUrl = url;
     let lastError;
@@ -58,6 +67,7 @@ export class BrowserManager {
     );
   }
 
+  /** Closes the browser and cleans up page/browser references. */
   public async closeBrowser(): Promise<void> {
     if (!this.browser) return;
 
@@ -68,6 +78,7 @@ export class BrowserManager {
     this.page = null;
   }
 
+  /** Returns the active page. Throws if browser hasn't been initialized. */
   public getPage(): Page {
     if (!this.page) {
       throw new Error(
@@ -77,6 +88,7 @@ export class BrowserManager {
     return this.page;
   }
 
+  /** Checks if the browser and page are still responsive by running a small script. */
   public async isHealthy(): Promise<boolean> {
     // return false is there is no page or browser yet
     if (!this.browser || !this.page) return false;
@@ -90,6 +102,7 @@ export class BrowserManager {
     }
   }
 
+  /** Checks browser health and automatically recovers by relaunching if unresponsive. */
   public async ensureHealthy(): Promise<void> {
     const healthy = await this.isHealthy();
 

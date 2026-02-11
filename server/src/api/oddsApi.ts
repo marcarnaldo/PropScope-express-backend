@@ -1,3 +1,11 @@
+/**
+ * FanDuel Odds API Service
+ *
+ * Fetches player prop odds from FanDuel via The Odds API (https://the-odds-api.com).
+ * FanDuel is used as the "anchor" book — the sharp reference for true odds.
+ * Each API call costs credits, so we only fetch when needed (scheduled before game time).
+ */
+
 import "dotenv/config";
 import { logger } from "../utils/errorHandling.ts";
 import {
@@ -6,11 +14,19 @@ import {
   SPORTS,
 } from "../config/oddsapiConstants.ts";
 import { getErrorMessage, MAX_RETRIES } from "../utils/errorHandling.ts";
+import {
+  FdEvent,
+  FdEventOddsResponse,
+  FdMarket,
+  FdOutcome,
+  PlayerPropsResponse,
+} from "../config/types.ts";
 
 export class FanduelOddsApiService {
   private readonly API_KEY = process.env.ODDS_API_KEY;
 
-  private async getFanduelEvents(sport: string): Promise<any[]> {
+  /** Fetches all upcoming events for a given sport from The Odds API. */
+  private async getFanduelEvents(sport: string): Promise<FdEvent[]> {
     let lastError;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
@@ -21,7 +37,7 @@ export class FanduelOddsApiService {
         // Throw an error if the HTTP response is not successful
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 
-        const data = await res.json();
+        const data: FdEvent[] = await res.json();
         return data;
       } catch (error) {
         const errorMessage = getErrorMessage(error);
@@ -50,13 +66,17 @@ export class FanduelOddsApiService {
       `Failed to fetch events after ${MAX_RETRIES} attempts: ${lastError}`,
     );
   }
-  // Get the player prop of the specified sport and the event
+
+  /**
+   * Fetches player prop odds for a specific event from The Odds API.
+   * Tracks remaining API credits and reduces market count if running low.
+   */
   private async getPlayerProps(
     sport: string,
     eventId: string,
-    markets: any,
+    markets: readonly string[],
     anchor: string,
-  ): Promise<any> {
+  ): Promise<FdEventOddsResponse> {
     let lastError;
     let remainingCredits = Infinity;
     const marketPropsLength = markets.length;
@@ -99,7 +119,7 @@ export class FanduelOddsApiService {
 
         if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
 
-        const data = await res.json();
+        const data: FdEventOddsResponse = await res.json();
         return data;
       } catch (error) {
         const errorMessage = getErrorMessage(error);
@@ -128,13 +148,18 @@ export class FanduelOddsApiService {
     );
   }
 
+  /**
+   * Fetches and parses FanDuel player prop odds for a specific game.
+   * Matches the event by home/away team to ensure we get the correct game.
+   * Organizes odds by player name and prop type.
+   */
   // Need to pass both home and away team so that I do not get any teams that are going back to back
-  public async getFanduelOdds(homeTeam: string, awayTeam: string) {
+  public async getFanduelOdds(homeTeam: string, awayTeam: string): Promise<PlayerPropsResponse | null> {
     try {
       const events = await this.getFanduelEvents(SPORTS.NBA);
 
       // Filter the event based on passed homeTeam and awayTeam to make sure that we get the same event as sia
-      const filteredEvent = events.find((event: any) => {
+      const filteredEvent = events.find((event: FdEvent) => {
         return event.home_team === homeTeam && event.away_team === awayTeam;
       });
 
@@ -150,24 +175,24 @@ export class FanduelOddsApiService {
         ANCHOR_BOOK,
       );
 
-      const fdMarkets = fdData.bookmakers[0].markets || [];
+      const fdMarkets: FdMarket[] = fdData.bookmakers[0].markets || [];
 
-      const propsByPlayer = {
+      const propsByPlayer: PlayerPropsResponse = {
         ht: homeTeam,
         at: awayTeam,
-        props: {} as Record<string, any>,
+        props: {},
       };
 
-      fdMarkets.forEach((market: any) => {
+      fdMarkets.forEach((market: FdMarket) => {
         // Example of odds_api propType key: player_assists. Thus, we need to remove "player" to nothing to get just the type.
         const propType = market.key.replace("player_", "");
 
-        market.outcomes.forEach((outcome: any) => {
+        market.outcomes.forEach((outcome: FdOutcome) => {
           const playerName = outcome.description;
           const line = outcome.point;
           const odds = outcome.price;
           // over or under
-          const side = outcome.name.toLowerCase();
+          const side = outcome.name.toLowerCase() as "over" | "under";
 
           // Check if the player is in the entry. If not, make one.
           if (!propsByPlayer.props[playerName]) {
@@ -176,7 +201,7 @@ export class FanduelOddsApiService {
 
           // Check if proptype is already in the entry. If not, make one and populate with the line.
           if (!propsByPlayer.props[playerName][propType]) {
-            propsByPlayer.props[playerName][propType] = { line }; // { line } is a shorthand for { line: line }
+            propsByPlayer.props[playerName][propType] = { line } as any; // Partially built, over/under added below
           }
 
           // Just putting over: odds or under:odds
