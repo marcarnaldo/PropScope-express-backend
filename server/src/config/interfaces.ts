@@ -3,15 +3,16 @@ export interface PropParams {
     eventId: string
 }
 
-export interface Fixture {
-  fixtureId: number;
-  fixtureData: any;
-  startDate: string;
-  createdAt?: string;
-}
-
 export interface OddsSnapshot {
   fixtureId: number;
   oddsData: any;
-  lastUpdated?: string;
+  snapshotTime: string;
+}
+
+export interface Fixture {
+  fixtureId: number;
+  homeTeam: string;
+  awayTeam: string;
+  startDate: string;
+  status: string;
 }
