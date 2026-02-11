@@ -10,7 +10,7 @@ export const initNbaSchema = async (db: Database) => {
       status VARCHAR(20) DEFAULT 'scheduled',
       raw_data JSONB,
       created_at TIMESTAMPTZ DEFAULT NOW(),
-      updated_at TIMESTAMPTZ DEFUALT NOW()
+      updated_at TIMESTAMPTZ DEFAULT NOW()
     )
   `);
 

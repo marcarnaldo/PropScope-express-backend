@@ -12,27 +12,18 @@ import {
 } from "./oddsAggregator.ts";
 import {
   upsertFixture,
-  getNbaFixturesFromDb,
-  upsertOdds,
+  insertOddsSnapshot,
+  getScrapableFixtures,
 } from "../db/nbaRepositories.ts";
 import { FanduelOddsApiService } from "../api/oddsApi.ts";
 
 export class Scheduler {
-  private activeIntervals: ReturnType<typeof setInterval>[];
   private activeJobs: schedule.Job[];
+  private activeScrapes: Map<number, ReturnType<typeof setInterval>>;
 
   constructor() {
-    this.activeIntervals = [];
     this.activeJobs = [];
-  }
-
-  addInterval(
-    callback: () => void,
-    interval: number,
-  ): ReturnType<typeof setInterval> {
-    const id = setInterval(callback, interval);
-    this.activeIntervals.push(id);
-    return id;
+    this.activeScrapes = new Map();
   }
 
   addJob(time: Date, callback: () => void): schedule.Job {
@@ -41,11 +32,29 @@ export class Scheduler {
     return job;
   }
 
+  isScrapingFixture(fixtureId: number): boolean {
+    return this.activeScrapes.has(fixtureId);
+  }
+
+  addScrape(
+    fixtureId: number,
+    intervalId: ReturnType<typeof setInterval>,
+  ): void {
+    this.activeScrapes.set(fixtureId, intervalId);
+  }
+
+  removeScrape(fixtureId: number): void {
+    const intervalId = this.activeScrapes.get(fixtureId);
+    if (intervalId) {
+      clearInterval(intervalId);
+      this.activeScrapes.delete(fixtureId);
+    }
+  }
+
   shutdown(): void {
-    this.activeIntervals.forEach((i) => clearInterval(i));
-    this.activeJobs.forEach((j) => j.cancel());
-    this.activeIntervals = [];
+    this.activeJobs.forEach((job) => job.cancel());
     this.activeJobs = [];
+    this.activeScrapes.clear();
   }
 }
 
@@ -55,39 +64,40 @@ export const initDailyScheduler = async (
   fdService: FanduelOddsApiService,
   scheduler: Scheduler,
 ) => {
-  const job = cron.schedule("0 6-23 * * *", async () => {
-    try {
-      // Check if we already have the fixtures today on db
-      const existingFixturesFromDb = await getNbaFixturesFromDb(db);
+  // Run as soon as server server starts so that if server shutdown, we can just fetch asap
+  await fetchAndSchedule(db, siaService, fdService, scheduler)
+  // We then run it hourly just to make sure we get any re-schedules, cancellations, etc.
+  cron.schedule("0 6-23 * * *", () => fetchAndSchedule(db, siaService, fdService, scheduler));
+};
 
-      // Just do nothing if we already have the fixtures on db
-      if (existingFixturesFromDb.length > 0) {
-        logger.info("Fixtures already fetched for today, skipping...");
-        return;
-      }
+const fetchAndSchedule = async (
+  db: Database,
+  siaService: SiaApiService,
+  fdService: FanduelOddsApiService,
+  scheduler: Scheduler,
+) => {
+  try {
+    const fixtures = await siaService.getFixtures(SIA_URLS.nba.fixtures);
 
-      const fixtures = await siaService.getFixtures(SIA_URLS.nba.fixtures);
-
-      // Just exit if there are no NBA games today
-      if (fixtures.length === 0) {
-        logger.info("No NBA games today, skipping");
-        return;
-      }
-
-      // save each fixture to db
-      for (const fixture of fixtures) {
-        await upsertFixture(db, fixture.id, fixture, fixture.startDate);
-      }
-
-      await initScrapingScheduler(db, siaService, fdService, scheduler);
-    } catch (error) {
-      const errorMessage = getErrorMessage(error);
-      logger.error(
-        { error: errorMessage },
-        "Hourly fixture fetch failed, go to initDailyScheduler",
-      );
+    // Just exit if there are no NBA games today
+    if (fixtures.length === 0) {
+      logger.info("No NBA games today, skipping");
+      return;
     }
-  });
+
+    // save each fixture to db
+    for (const fixture of fixtures) {
+      await upsertFixture(db, fixture.id, fixture, fixture.startDate);
+    }
+
+    await initScrapingScheduler(db, siaService, fdService, scheduler);
+  } catch (error) {
+    const errorMessage = getErrorMessage(error);
+    logger.error(
+      { error: errorMessage },
+      "Hourly fixture fetch failed, go to initDailyScheduler",
+    );
+  }
 };
 
 const initScrapingScheduler = async (
@@ -97,7 +107,7 @@ const initScrapingScheduler = async (
   scheduler: Scheduler,
 ) => {
   try {
-    const fixturesFromDb = await getNbaFixturesFromDb(db);
+    const fixturesFromDb = await getScrapableFixtures(db);
 
     // Skip scraping scheduling if no games today
     if (fixturesFromDb.length === 0) {
@@ -105,22 +115,47 @@ const initScrapingScheduler = async (
       return;
     }
 
+    const timeNow = new Date();
+
     // For each game, schedule a scraper every 5 minute to save odds to db
     fixturesFromDb.forEach((fixtureRow: any) => {
+      const fixtureId = fixtureRow.fixture_id;
+
+      // Check if the fixture is already being scraped. If so, we just skip it.
+      if (scheduler.isScrapingFixture(fixtureId)) return;
+
       const gameTime = new Date(fixtureRow.start_date);
-      const twoHoursInMilliseconds = 2 * 60 * 60 * 1000;
-      const scrapeTime = new Date(gameTime.getTime() - twoHoursInMilliseconds);
+
+      // No need to scrape when the time now is already past game time or is game time
+      if (gameTime <= timeNow) return;
+
+      const twoHoursInMs = 2 * 60 * 60 * 1000;
+      const scrapeTime = new Date(gameTime.getTime() - twoHoursInMs);
       const scrapeInteval = 60 * 5000; // 5 minutes
-      // We schedule our scrapers 2 hours before game time since sharp money tend to flow during that time
-      scheduleOddsScraper(
-        scrapeTime,
-        db,
-        fixtureRow,
-        scrapeInteval,
-        siaService,
-        fdService,
-        scheduler,
-      );
+
+      // If the time now is within the scrapTime and gameTime, we must scrape now since the window for scraping is currently active
+      if (scrapeTime <= timeNow) {
+        startScraping(
+          db,
+          fixtureRow,
+          scrapeInteval,
+          siaService,
+          fdService,
+          scheduler,
+        );
+      } else {
+        // We schedule scraping later if the scrape window is still not hit
+        scheduler.addJob(scrapeTime, () => {
+          startScraping(
+            db,
+            fixtureRow,
+            scrapeInteval,
+            siaService,
+            fdService,
+            scheduler,
+          );
+        });
+      }
     });
   } catch (error) {
     const errorMessage = getErrorMessage(error);
@@ -131,8 +166,7 @@ const initScrapingScheduler = async (
   }
 };
 
-const scheduleOddsScraper = (
-  scrapeTime: Date,
+const startScraping = (
   db: Database,
   fixtureRow: any,
   interval: number,
@@ -140,27 +174,27 @@ const scheduleOddsScraper = (
   fdService: FanduelOddsApiService,
   scheduler: Scheduler,
 ) => {
+  const fixtureId = fixtureRow.fixture_id;
   const gameTime = new Date(fixtureRow.start_date);
 
-  scheduler.addJob(scrapeTime, () => {
-    const scrapeInterval = scheduler.addInterval(async () => {
-      await updateOddsToDb(
-        db,
-        fixtureRow.fixture_id,
-        JSON.parse(fixtureRow.fixture_data),
-        siaService,
-        fdService,
-      );
-    }, interval);
+  const scrapeIntervalId = setInterval(async () => {
+    await updateOddsToDb(
+      db,
+      fixtureId,
+      JSON.parse(fixtureRow.raw_data),
+      siaService,
+      fdService,
+    );
+  }, interval);
 
-    scheduler.addJob(gameTime, () => {
-      clearInterval(scrapeInterval);
-      logger.info(
-        { gameTime, fixtureId: fixtureRow.fixture_id },
-        "Game has started, stopped scraping the fixture",
-      );
-    });
+  scheduler.addScrape(fixtureId, scrapeIntervalId);
+
+  scheduler.addJob(gameTime, () => {
+    scheduler.removeScrape(fixtureId);
+    logger.info({ fixtureId, gameTime }, "Game started, stopped scraping");
   });
+
+  logger.info({ fixtureId, gameTime }, "Started scraping fixture");
 };
 
 const updateOddsToDb = async (
@@ -179,18 +213,22 @@ const updateOddsToDb = async (
     );
 
     if (!aggregatedOdds) {
-      logger.info({ fixtureId }, "Skipping saving to db since there is no aggregated odds available")
+      logger.info(
+        { fixtureId },
+        "Skipping saving to db since there is no aggregated odds available",
+      );
       return;
     }
     const filteredOdds = filterSameLines(aggregatedOdds);
     const normalizedOdds = normalizeOdds(filteredOdds);
-    await upsertOdds(db, fixtureId, normalizedOdds);
+    await insertOddsSnapshot(db, fixtureId, normalizedOdds);
 
-    logger.info({ fixtureId }, "updated odds for fixture")
-    
+    logger.info({ fixtureId }, "updated odds for fixture");
   } catch (error) {
     const errorMessage = getErrorMessage(error);
-    logger.error({ fixtureId, error: errorMessage }, "Failed to update odds for this fixture")
-
+    logger.error(
+      { fixtureId, error: errorMessage },
+      "Failed to update odds for this fixture",
+    );
   }
 };

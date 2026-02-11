@@ -69,7 +69,7 @@ export const getScrapableFixtures = async (db: Database): Promise<any[]> => {
   const result = await db.query(
     /* SQL */
     `
-    SELECT fixtures_id, home_team, away_team, start_date, status, raw_data
+    SELECT fixture_id, home_team, away_team, start_date, status, raw_data
     FROM nba_fixtures
     WHERE start_date::date = CURRENT_DATE
     AND status =  'scheduled'
