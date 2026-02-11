@@ -15,7 +15,7 @@ export const upsertFixture = async (
         INSERT INTO nba_fixtures (fixture_id, home_team, away_team, start_date, raw_data)
         VALUES ($1, $2, $3, $4, $5)
         ON CONFLICT (fixture_id)
-        DO UPDATE SET fixture_data = $2, away_team = $3, start_date = $4, raw_data = $5`,
+        DO UPDATE SET home_team = $2, away_team = $3, start_date = $4, raw_data = $5`,
     [fixtureId, homeTeam, awayTeam, startDate, JSON.stringify(fixtureData)],
   );
 };
@@ -109,7 +109,8 @@ export const getOddsHistory = async (
     SELECT fixture_id, odds_data, snapshot_time
     FROM nba_odds_snapshots
     WHERE fixture_id = $1
-    ORDER BY snapshot_time ASC`[fixtureId],
+    ORDER BY snapshot_time ASC`,
+    [fixtureId],
   );
 
   return result.rows.map((row) => ({
