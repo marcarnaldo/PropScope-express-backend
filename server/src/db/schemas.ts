@@ -7,7 +7,7 @@ export const initNbaSchema = async (db: Database) => {
       home_team VARCHAR(100) NOT NULL,
       away_team VARCHAR(100) NOT NULL,
       start_date TIMESTAMPTZ NOT NULL,
-      status VARCHAR(20) DEFAULT 'scheduled',
+      status VARCHAR(20) DEFAULT 'open',
       raw_data JSONB,
       created_at TIMESTAMPTZ DEFAULT NOW(),
       updated_at TIMESTAMPTZ DEFAULT NOW()

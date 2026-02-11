@@ -14,6 +14,8 @@ import {
   upsertFixture,
   insertOddsSnapshot,
   getScrapableFixtures,
+  updateFixtureStatus,
+  markStartedFixtures,
 } from "../db/nbaRepositories.ts";
 import { FanduelOddsApiService } from "../api/oddsApi.ts";
 
@@ -77,6 +79,7 @@ const fetchAndSchedule = async (
   scheduler: Scheduler,
 ) => {
   try {
+    await markStartedFixtures(db);
     const fixtures = await siaService.getFixtures(SIA_URLS.nba.fixtures);
 
     // Just exit if there are no NBA games today
@@ -189,8 +192,9 @@ const startScraping = (
 
   scheduler.addScrape(fixtureId, scrapeIntervalId);
 
-  scheduler.addJob(gameTime, () => {
+  scheduler.addJob(gameTime, async () => {
     scheduler.removeScrape(fixtureId);
+    await updateFixtureStatus(db, fixtureId, "close")
     logger.info({ fixtureId, gameTime }, "Game started, stopped scraping");
   });
 
