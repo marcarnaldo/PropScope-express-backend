@@ -72,7 +72,7 @@ export const getScrapableFixtures = async (db: Database): Promise<any[]> => {
     SELECT fixture_id, home_team, away_team, start_date, status, raw_data
     FROM nba_fixtures
     WHERE start_date::date = CURRENT_DATE
-    AND status =  'scheduled'
+    AND status =  'open'
     `,
   );
 
@@ -118,4 +118,13 @@ export const getOddsHistory = async (
     oddsData: JSON.parse(row.odds_data),
     snapshotTime: row.snapshot_time,
   }));
+};
+
+export const markStartedFixtures = async (db: Database) => {
+  await db.query(
+    /* SQL */
+    `UPDATE nba_fixtures 
+     SET status = 'close' 
+     WHERE start_date <= NOW() AND status = 'open'`
+  );
 };

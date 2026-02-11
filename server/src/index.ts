@@ -8,47 +8,12 @@ import { initNbaSchema } from "./db/schemas";
 import { initDailyScheduler, Scheduler } from "./services/scheduler";
 import {
   getNbaFixturesFromDb,
-  getNbaNormalizedOdds,
+  getOddsHistory,
 } from "./db/nbaRepositories";
-import { uptime } from "node:process";
+
 
 const app = express();
 const port = process.env.PORT;
-
-// const main = async () => {
-//   const siaApiService = new SiaApiService();
-//   await siaApiService.initialize(); // ← Missing this?
-//   const fdApiService = new FanduelOddsApiService();
-//   const fixtures = await siaApiService.getFixtures(SIA_URLS.nba.fixtures);
-
-//   fixtures.forEach(async (fixture: any) => {
-//     const awayTeam = fixture.participants[0].name.value;
-//     const homeTeam = fixture.participants[1].name.value;
-//     const markets = await siaApiService.getSiaPlayerOverUnders(
-//       fixture.id,
-//       awayTeam,
-//       homeTeam,
-//       fixture,
-//     );
-
-//     const aggregateOdds = await aggregateSiaAndFdOdds(
-//       fixture.id,
-//       fixture,
-//       siaApiService,
-//       fdApiService,
-//     );
-
-//     const filteredSameLine = filterSameLines(aggregateOdds);
-//     const normalizedOdds = normalizeOdds(filteredSameLine);
-
-//     await fs.writeFile(
-//       `normalizedOdds_${awayTeam}_vs_${homeTeam}.json`,
-//       JSON.stringify(normalizedOdds, null, 2),
-//     );
-//   });
-// };
-
-// await main();
 
 const db = Database.getInstance();
 await initNbaSchema(db);
@@ -59,14 +24,15 @@ const scheduler = new Scheduler();
 
 await initDailyScheduler(db, siaService, fdService, scheduler);
 
-app.get("/nba/normalizedOdds", async (req, res) => {
-  const nbaNormalizedOdds = await getNbaNormalizedOdds(db);
-  res.json(nbaNormalizedOdds);
-});
-
 app.get("/nba/games", async (req, res) => {
   const games = await getNbaFixturesFromDb(db);
   res.json(games);
+});
+
+app.get("/nba/odds/:fixtureId/history", async (req, res) => {
+  const fixtureId = parseInt(req.params.fixtureId);
+  const history = await getOddsHistory(db, fixtureId);
+  res.json(history);
 });
 
 app.get("/health", async (req, res) => {
