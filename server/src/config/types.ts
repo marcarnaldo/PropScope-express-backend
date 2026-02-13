@@ -6,6 +6,12 @@ export interface PropOdds {
   under: number;
 }
 
+export const SPORTS = {
+  NBA: 'nba',
+  NFL: 'nfl',
+  NHL: 'nhl'
+}
+
 // ===== SIA API Shapes (external) =====
 
 export interface SiaFixtureParticipant {

@@ -80,11 +80,12 @@ export const initDailyScheduler = async (
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
   scheduler: Scheduler,
+  sport: string
 ): Promise<void> => {
   // Run as soon as server server starts so that if server shutdown, we can just fetch asap
-  await fetchAndSchedule(db, siaService, fdService, scheduler)
+  await fetchAndSchedule(db, siaService, fdService, scheduler, sport)
   // We then run it hourly just to make sure we get any re-schedules, cancellations, etc.
-  cron.schedule("0 6-23 * * *", () => fetchAndSchedule(db, siaService, fdService, scheduler));
+  cron.schedule("0 6-23 * * *", () => fetchAndSchedule(db, siaService, fdService, scheduler, sport));
 };
 
 /**
@@ -96,9 +97,10 @@ const fetchAndSchedule = async (
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
   scheduler: Scheduler,
+  sport: string,
 ): Promise<void> => {
   try {
-    await markStartedFixtures(db);
+    await markStartedFixtures(db, sport);
     const fixtures: SiaFixture[] = await siaService.getFixtures(SIA_URLS.nba.fixtures);
 
     // Just exit if there are no NBA games today
@@ -109,10 +111,10 @@ const fetchAndSchedule = async (
 
     // save each fixture to db
     for (const fixture of fixtures) {
-      await upsertFixture(db, fixture.id, fixture, fixture.startDate);
+      await upsertFixture(db, fixture.id, fixture, fixture.startDate, sport);
     }
 
-    await initScrapingScheduler(db, siaService, fdService, scheduler);
+    await initScrapingScheduler(db, siaService, fdService, scheduler, sport);
   } catch (error) {
     const errorMessage = getErrorMessage(error);
     logger.error(
@@ -132,9 +134,10 @@ const initScrapingScheduler = async (
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
   scheduler: Scheduler,
+  sport: string
 ): Promise<void> => {
   try {
-    const fixturesFromDb: FixtureRow[] = await getScrapableFixtures(db);
+    const fixturesFromDb: FixtureRow[] = await getScrapableFixtures(db, sport);
 
     // Skip scraping scheduling if no games today
     if (fixturesFromDb.length === 0) {
