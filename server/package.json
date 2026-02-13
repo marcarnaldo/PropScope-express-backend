@@ -14,7 +14,6 @@
   "dependencies": {
     "@types/express": "^5.0.6",
     "dotenv": "^17.2.3",
-    "express": "^5.2.1",
     "node-cron": "^4.2.1",
     "node-schedule": "^2.1.1",
     "pg": "^8.18.0",
