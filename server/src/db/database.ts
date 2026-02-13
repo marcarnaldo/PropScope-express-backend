@@ -27,8 +27,18 @@ export class Database {
       // connectionTimeoutMillis: 2000,
     });
 
-    this.pool.on("error", (err: NodeJS.ErrnoException & { detail?: string }) => {
-      logger.error({ error: err.message, code: err.code,  detail: err.detail}, "Unexpected database error");
+    this.pool.on(
+      "error",
+      (err: NodeJS.ErrnoException & { detail?: string }) => {
+        logger.error(
+          { error: err.message, code: err.code, detail: err.detail },
+          "Unexpected database error",
+        );
+      },
+    );
+
+    this.pool.on("connect", (client) => {
+      client.query("SET timezone = 'America/Vancouver'");
     });
   }
 
@@ -41,7 +51,10 @@ export class Database {
     return Database.instance;
   }
 
-  public async query(sql: string, params?: (string | number)[]): Promise<pg.QueryResult> {
+  public async query(
+    sql: string,
+    params?: (string | number)[],
+  ): Promise<pg.QueryResult> {
     return this.pool.query(sql, params);
   }
 
