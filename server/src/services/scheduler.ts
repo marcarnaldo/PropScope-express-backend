@@ -29,14 +29,18 @@ import {
 } from "../db/nbaRepositories.ts";
 import { FanduelOddsApiService } from "../api/oddsApi.ts";
 import { SiaFixture, FixtureRow } from "../config/types.ts";
+import { sseManager } from "./sseManager.ts";
 
 export class Scheduler {
   private activeJobs: schedule.Job[];
-  private activeScrapes: Map<number, ReturnType<typeof setInterval>>;
+  // Stores fixture dat
+  private activeFixtures: Map<number, FixtureRow>;
+  private scrapeInterval: ReturnType<typeof setInterval> | null;
 
   constructor() {
     this.activeJobs = [];
-    this.activeScrapes = new Map();
+    this.activeFixtures = new Map();
+    this.scrapeInterval = null;
   }
 
   addJob(time: Date, callback: () => void): schedule.Job {
@@ -46,31 +50,43 @@ export class Scheduler {
   }
 
   isScrapingFixture(fixtureId: number): boolean {
-    return this.activeScrapes.has(fixtureId);
+    return this.activeFixtures.has(fixtureId);
   }
 
-  addScrape(
-    fixtureId: number,
-    intervalId: ReturnType<typeof setInterval>,
-  ): void {
-    this.activeScrapes.set(fixtureId, intervalId);
+  addFixture(fixtureRow: FixtureRow): void {
+    this.activeFixtures.set(fixtureRow.fixture_id, fixtureRow);
   }
 
-  removeScrape(fixtureId: number): void {
-    const intervalId = this.activeScrapes.get(fixtureId);
-    if (intervalId) {
-      clearInterval(intervalId);
-      this.activeScrapes.delete(fixtureId);
+  // If no more fixtures to scrape, stop the shared interval
+  removeFixture(fixtureId: number): void {
+    this.activeFixtures.delete(fixtureId);
+    if (this.activeFixtures.size === 0) this.stopScrapeInterval();
+  }
+
+  getActiveFixtures(): FixtureRow[] {
+    return Array.from(this.activeFixtures.values());
+  }
+
+  startScrapeInterval(interval: number, callback: () => void): void {
+    if (this.scrapeInterval) return;
+    this.scrapeInterval = setInterval(callback, interval);
+  }
+
+  stopScrapeInterval(): void {
+    if (this.scrapeInterval) {
+      clearInterval(this.scrapeInterval);
+      this.scrapeInterval = null;
     }
   }
 
   shutdown(): void {
     this.activeJobs.forEach((job) => job.cancel());
     this.activeJobs = [];
-    this.activeScrapes.clear();
+    this.activeFixtures.clear();
+    this.stopScrapeInterval();
   }
 }
-
+Map<number, FixtureRow>
 /**
  * Initializes the daily scheduler. Runs immediately on startup to catch up
  * after any downtime, then runs hourly (6AM-11PM) to pick up reschedules or cancellations.
@@ -80,12 +96,14 @@ export const initDailyScheduler = async (
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
   scheduler: Scheduler,
-  sport: string
+  sport: string,
 ): Promise<void> => {
   // Run as soon as server server starts so that if server shutdown, we can just fetch asap
-  await fetchAndSchedule(db, siaService, fdService, scheduler, sport)
+  await fetchAndSchedule(db, siaService, fdService, scheduler, sport);
   // We then run it hourly just to make sure we get any re-schedules, cancellations, etc.
-  cron.schedule("0 6-23 * * *", () => fetchAndSchedule(db, siaService, fdService, scheduler, sport));
+  cron.schedule("0 6-23 * * *", () =>
+    fetchAndSchedule(db, siaService, fdService, scheduler, sport),
+  );
 };
 
 /**
@@ -101,7 +119,9 @@ const fetchAndSchedule = async (
 ): Promise<void> => {
   try {
     await markStartedFixtures(db, sport);
-    const fixtures: SiaFixture[] = await siaService.getFixtures(SIA_URLS.nba.fixtures);
+    const fixtures: SiaFixture[] = await siaService.getFixtures(
+      SIA_URLS.nba.fixtures,
+    );
 
     // Just exit if there are no NBA games today
     if (fixtures.length === 0) {
@@ -134,7 +154,7 @@ const initScrapingScheduler = async (
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
   scheduler: Scheduler,
-  sport: string
+  sport: string,
 ): Promise<void> => {
   try {
     const fixturesFromDb: FixtureRow[] = await getScrapableFixtures(db, sport);
@@ -200,6 +220,7 @@ const initScrapingScheduler = async (
  * Starts the 5-minute interval scraper for a fixture.
  * Also schedules a job at game time to stop scraping and mark the fixture as closed.
  */
+// NEW startScraping — just registers fixture, starts shared interval if not running
 const startScraping = (
   db: Database,
   fixtureRow: FixtureRow,
@@ -211,21 +232,19 @@ const startScraping = (
   const fixtureId = fixtureRow.fixture_id;
   const gameTime = new Date(fixtureRow.start_date);
 
-  const scrapeIntervalId = setInterval(async () => {
-    await updateOddsToDb(
-      db,
-      fixtureId,
-      JSON.parse(fixtureRow.raw_data) as SiaFixture,
-      siaService,
-      fdService,
-    );
-  }, interval);
+  // Add this fixture to the active set
+  scheduler.addFixture(fixtureRow);
 
-  scheduler.addScrape(fixtureId, scrapeIntervalId);
+  // Start the shared interval if it's not already running
+  // This callback scrapes ALL active fixtures each tick
+  scheduler.startScrapeInterval(interval, async () => {
+    await scrapeAllFixtures(db, siaService, fdService, scheduler);
+  });
 
+  // Schedule stop at game time
   scheduler.addJob(gameTime, async () => {
-    scheduler.removeScrape(fixtureId);
-    await updateFixtureStatus(db, fixtureId, "close")
+    scheduler.removeFixture(fixtureId);
+    await updateFixtureStatus(db, fixtureId, "close");
     logger.info({ fixtureId, gameTime }, "Game started, stopped scraping");
   });
 
@@ -242,7 +261,7 @@ const updateOddsToDb = async (
   fixture: SiaFixture,
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
-): Promise<void> => {
+): Promise<number | null> => {
   try {
     const aggregatedOdds = await aggregateSiaAndFdOdds(
       fixtureId,
@@ -256,18 +275,58 @@ const updateOddsToDb = async (
         { fixtureId },
         "Skipping saving to db since there is no aggregated odds available",
       );
-      return;
+      return null;
     }
+
     const filteredOdds = filterSameLines(aggregatedOdds);
     const normalizedOdds = normalizeOdds(filteredOdds);
     await insertOddsSnapshot(db, fixtureId, normalizedOdds);
 
     logger.info({ fixtureId }, "updated odds for fixture");
+    return fixtureId; // Return instead of notifying SSE
   } catch (error) {
     const errorMessage = getErrorMessage(error);
     logger.error(
       { fixtureId, error: errorMessage },
       "Failed to update odds for this fixture",
     );
+    return null;
+  }
+};
+
+// NEW — scrapes all active fixtures, sends one batched SSE event
+const scrapeAllFixtures = async (
+  db: Database,
+  siaService: SiaApiService,
+  fdService: FanduelOddsApiService,
+  scheduler: Scheduler,
+): Promise<void> => {
+  const activeFixtures = scheduler.getActiveFixtures();
+  if (activeFixtures.length === 0) return;
+
+  // Scrape all fixtures concurrently
+  const results = await Promise.allSettled(
+    activeFixtures.map((fixtureRow) =>
+      updateOddsToDb(
+        db,
+        fixtureRow.fixture_id,
+        fixtureRow.raw_data as SiaFixture,
+        siaService,
+        fdService,
+      ),
+    ),
+  );
+
+  // Collect fixture IDs that succeeded
+  const updatedFixtureIds: number[] = [];
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled" && result.value) {
+      updatedFixtureIds.push(activeFixtures[index].fixture_id);
+    }
+  });
+
+  // One SSE event with all updated fixtures
+  if (updatedFixtureIds.length > 0) {
+    sseManager.notifyBatchUpdate(updatedFixtureIds);
   }
 };

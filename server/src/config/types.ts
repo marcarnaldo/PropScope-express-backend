@@ -118,8 +118,6 @@ export interface NormalizedProp {
 }
 
 export interface NormalizedOdds {
-  homeTeam: string;
-  awayTeam: string;
   props: Record<string, Record<string, NormalizedProp>>;
 }
 
@@ -131,7 +129,7 @@ export interface FixtureRow {
   away_team: string;
   start_date: string;
   status: string;
-  raw_data: string;
+  raw_data: SiaFixture;
 }
 
 // ===== API Response Shapes =====

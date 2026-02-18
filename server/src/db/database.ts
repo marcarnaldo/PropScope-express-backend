@@ -22,9 +22,9 @@ export class Database {
       user: process.env.DB_USER || "user",
       password: process.env.DB_PASSWORD || "user",
       database: process.env.DB_NAME || "oddsdb",
-      // max: 10,
-      // idleTimeoutMillis: 30000,
-      // connectionTimeoutMillis: 2000,
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
     });
 
     this.pool.on(

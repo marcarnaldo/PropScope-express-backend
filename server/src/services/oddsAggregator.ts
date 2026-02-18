@@ -162,8 +162,7 @@ export const filterSameLines = (aggregatedData: AggregatedOdds): FilteredOdds =>
  */
 export const normalizeOdds = (filteredLines: FilteredOdds): NormalizedOdds => {
   const removedVig: NormalizedOdds = {
-    homeTeam: filteredLines.homeTeam,
-    awayTeam: filteredLines.awayTeam,
+
     props: {},
   };
 
