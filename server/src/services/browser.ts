@@ -35,13 +35,22 @@ export class BrowserManager {
 
         this.browser = await puppeteer.launch({
           headless: true,
-          args: ["--no-sandbox", "--disable-setuid-sandbox"], // To make sure chrome run in production server environments
+          args: [
+            "--no-sandbox",
+            "--disable-setuid-sandbox", // To make sure chrome run in production server environments
+            `--proxy-server=http://${process.env.PROXY_HOST}:${process.env.PROXY_PORT}`, // tells Chromium to route all network traffic through the proxy instead of going directly to the internet.
+          ],
         });
 
         this.page = await this.browser.newPage();
+        // sends IPRoyal credentials to the proxy server. Residential proxies require authentication so random people can't use them.
+        await this.page.authenticate({
+          username: process.env.PROXY_USERNAME!,
+          password: process.env.PROXY_PASSWORD!,
+        });
 
         await this.page.goto(url, {
-          waitUntil: "networkidle0", // We wait for the html to fully load to set the cookies, allow us to query, etc
+          waitUntil: "domcontentloaded", // We wait for the html to fully load to set the cookies, allow us to query, etc
           timeout: 30000, // We wait 30s for the page to respond. If not, we retry
         });
 
