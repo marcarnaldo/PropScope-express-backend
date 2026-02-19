@@ -302,6 +302,7 @@ const scrapeAllFixtures = async (
   scheduler: Scheduler,
 ): Promise<void> => {
   const activeFixtures = scheduler.getActiveFixtures();
+  logger.info({ count: activeFixtures.length }, "Scraping all active fixtures");
   if (activeFixtures.length === 0) return;
 
   // Scrape all fixtures concurrently

@@ -45,6 +45,9 @@ export class BrowserManager {
           timeout: 30000, // We wait 30s for the page to respond. If not, we retry
         });
 
+        const pageTitle = await this.page.title();
+        const pageUrl = this.page.url();
+        logger.info({ pageTitle, pageUrl }, "Browser initialized successfully");
         logger.info("Browser initialized successfully");
         return;
       } catch (error) {
