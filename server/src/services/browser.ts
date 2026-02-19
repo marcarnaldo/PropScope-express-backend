@@ -28,7 +28,10 @@ export class BrowserManager {
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        logger.info({ attempt, maxRetries: MAX_RETRIES }, "Attempting to launch browser")
+        logger.info(
+          { attempt, maxRetries: MAX_RETRIES },
+          "Attempting to launch browser",
+        );
 
         this.browser = await puppeteer.launch({
           headless: true,
@@ -42,7 +45,7 @@ export class BrowserManager {
           timeout: 30000, // We wait 30s for the page to respond. If not, we retry
         });
 
-        logger.info("Browser initialized successfully")
+        logger.info("Browser initialized successfully");
         return;
       } catch (error) {
         lastError = error;
@@ -56,7 +59,15 @@ export class BrowserManager {
         // Exponential backoff
         const waitTime = Math.pow(2, attempt) * 1000;
 
-        logger.warn({ attempt, maxRetries: MAX_RETRIES, error: errorMessage, waitMs: waitTime}, "failed to initialize a browser, retrying")
+        logger.warn(
+          {
+            attempt,
+            maxRetries: MAX_RETRIES,
+            error: errorMessage,
+            waitMs: waitTime,
+          },
+          "failed to initialize a browser, retrying",
+        );
 
         await new Promise((resolve) => setTimeout(resolve, waitTime));
       }
@@ -71,7 +82,6 @@ export class BrowserManager {
   public async closeBrowser(): Promise<void> {
     if (!this.browser) return;
 
-    
     // Close and clean the browser instance even if it throws an error
     await this.browser.close().catch(() => {});
     this.browser = null;
@@ -108,18 +118,18 @@ export class BrowserManager {
 
     if (!healthy) {
       if (!this.lastUrl) {
-        throw new Error(
-          "Cannot recover: No URL stored. Call initializeBrowser() first.",
-        );
+        throw new Error("Cannot recover: No URL stored.");
       }
-      
       logger.warn("Browser unhealthy, attempting recovery...");
-      
-      // if browser is not responsive, close it and clean the pages and browser
       await this.closeBrowser();
-      // We initialize the browser and page again
       await this.initializeBrowser(this.lastUrl);
       logger.info("Browser recovery successful");
+    } else {
+      // Browser is alive but session might be stale, refresh it if so
+      await this.page!.goto(this.lastUrl!, {
+        waitUntil: "domcontentloaded",
+        timeout: 30000,
+      });
     }
   }
 }
