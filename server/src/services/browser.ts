@@ -41,7 +41,7 @@ export class BrowserManager {
         this.page = await this.browser.newPage();
 
         await this.page.goto(url, {
-          waitUntil: "domcontentloaded", // We wait for the html to fully load to set the cookies, allow us to query, etc
+          waitUntil: "networkidle0", // We wait for the html to fully load to set the cookies, allow us to query, etc
           timeout: 30000, // We wait 30s for the page to respond. If not, we retry
         });
 
