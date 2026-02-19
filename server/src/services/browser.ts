@@ -11,6 +11,7 @@ import puppeteer from "puppeteer-extra";
 import { getErrorMessage, MAX_RETRIES } from "../utils/errorHandling";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { logger } from "../utils/errorHandling";
+import proxyChain from "proxy-chain";
 
 puppeteer.use(StealthPlugin());
 
@@ -33,21 +34,23 @@ export class BrowserManager {
           "Attempting to launch browser",
         );
 
+        // Build the full proxy URL
+        const oldProxyUrl = `http://${process.env.PROXY_USERNAME}:${process.env.PROXY_PASSWORD}@${process.env.PROXY_HOST}:${process.env.PROXY_PORT}`;
+
+        // Spins up a local proxy on a random port that forwards to iProyal
+        const newProxyUrl = await proxyChain.anonymizeProxy(oldProxyUrl);
+
+        // Launch with the local proxy
         this.browser = await puppeteer.launch({
           headless: true,
           args: [
             "--no-sandbox",
-            "--disable-setuid-sandbox", // To make sure chrome run in production server environments
-            `--proxy-server=http://${process.env.PROXY_HOST}:${process.env.PROXY_PORT}`, // tells Chromium to route all network traffic through the proxy instead of going directly to the internet.
+            "--disable-setuid-sandbox",
+            `--proxy-server=${newProxyUrl}`,
           ],
         });
 
         this.page = await this.browser.newPage();
-        // sends IPRoyal credentials to the proxy server. Residential proxies require authentication so random people can't use them.
-        await this.page.authenticate({
-          username: process.env.PROXY_USERNAME!,
-          password: process.env.PROXY_PASSWORD!,
-        });
 
         await this.page.goto(url, {
           waitUntil: "domcontentloaded", // We wait for the html to fully load to set the cookies, allow us to query, etc
