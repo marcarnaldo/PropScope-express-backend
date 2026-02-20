@@ -15,7 +15,18 @@ import proxyChain from "proxy-chain";
 
 puppeteer.use(StealthPlugin());
 
-const POOL_SIZE = 10;
+const POOL_SIZE = 3;
+
+const BLOCKED_RESOURCE_TYPES = new Set([
+  "image",
+  "stylesheet",
+  "font",
+  "media",
+  "texttrack",
+  "eventsource",
+  "manifest",
+  "other",
+]);
 
 export class BrowserManager {
   private browser: Browser | null = null;
@@ -53,7 +64,7 @@ export class BrowserManager {
 
         // Create a tab at initialization
         const setupPage = await this.browser.newPage();
-
+        await this.enableResourceBlocking(setupPage);
         await setupPage.goto(url, {
           waitUntil: "domcontentloaded", // We wait for the html to fully load to set the cookies, allow us to query, etc
           timeout: 30000, // We wait 30s for the page to respond. If not, we retry
@@ -62,10 +73,10 @@ export class BrowserManager {
         const pageTitle = await setupPage.title();
         const pageUrl = setupPage.url();
         logger.info({ pageTitle, pageUrl }, "Browser initialized successfully");
-        
+
         // close the setupPage since we are done setting up
         await setupPage.close();
-        
+
         // Create a pool of idle pages at initialization
         await this.createPagePool();
         return;
@@ -100,6 +111,18 @@ export class BrowserManager {
     );
   }
 
+  /** Block any unnecessary resource except XHR where the api lives */
+  private async enableResourceBlocking(page: Page) {
+    await page.setRequestInterception(true);
+    page.on("request", (request) => {
+      if (BLOCKED_RESOURCE_TYPES.has(request.resourceType())) {
+        request.abort();
+      } else {
+        request.continue();
+      }
+    });
+  }
+
   /** Create a pool of pages and push it to idlePages */
   private async createPagePool(): Promise<void> {
     // We cannot create a page(tab) if there is no browser
@@ -108,6 +131,7 @@ export class BrowserManager {
     // Push pages in idlePages to be distributed whenever a page is needed
     for (let i = 0; i < POOL_SIZE; i++) {
       const page = await this.browser.newPage();
+      await this.enableResourceBlocking(page);
       this.idlePages.push(page);
     }
     logger.info({ poolSize: POOL_SIZE }, "Page pool created");
