@@ -104,7 +104,7 @@ export class Scheduler {
 
 /**
  * Initializes the daily scheduler. Runs immediately on startup to catch up
- * after any downtime, then runs hourly (6AM-11PM) to pick up reschedules or cancellations.
+ * after any downtime. Runs daily at 6:00 A.M to fetch for new games.
  */
 export const initDailyScheduler = async (
   db: Database,
@@ -115,8 +115,8 @@ export const initDailyScheduler = async (
 ): Promise<void> => {
   // Run as soon as server starts so that if server shutdown, we can just fetch asap
   await fetchAndSchedule(db, siaService, fdService, scheduler, sport);
-  // We then run it hourly just to make sure we get any re-schedules, cancellations, etc.
-  cron.schedule("0 6-23 * * *", () =>
+  // Fetch once daily at 6AM — NBA schedules don't change intraday
+  cron.schedule("0 6 * * *", () =>
     fetchAndSchedule(db, siaService, fdService, scheduler, sport),
   );
 };
@@ -134,9 +134,13 @@ const fetchAndSchedule = async (
 ): Promise<void> => {
   try {
     await markStartedFixtures(db, sport);
+    // Initialize the browser only when needed
+    await siaService.initialize();
     const fixtures: SiaFixture[] = await siaService.getFixtures(
       SIA_URLS.nba.fixtures,
     );
+    // Close the browser once done
+    await siaService.close();
 
     // Just exit if there are no NBA games today
     if (fixtures.length === 0) {
@@ -156,6 +160,8 @@ const fetchAndSchedule = async (
       { error: errorMessage },
       "Hourly fixture fetch failed, go to initDailyScheduler",
     );
+    // Make sure browser is closed even if something fails
+    await siaService.close();
   }
 };
 
@@ -183,16 +189,16 @@ const initScrapingScheduler = async (
     const timeNow = new Date();
 
     // For each game, schedule a scraper every 5 minutes to save odds to db
-    fixturesFromDb.forEach((fixtureRow: FixtureRow) => {
+    for (const fixtureRow of fixturesFromDb) {
       const fixtureId = fixtureRow.fixture_id;
 
       // Check if the fixture is already being scraped. If so, we just skip it.
-      if (scheduler.isScrapingFixture(fixtureId)) return;
+      if (scheduler.isScrapingFixture(fixtureId)) continue;
 
       const gameTime = new Date(fixtureRow.start_date);
 
       // No need to scrape when the time now is already past game time or is game time
-      if (gameTime <= timeNow) return;
+      if (gameTime <= timeNow) continue;
 
       const twoHoursInMs = 2 * 60 * 60 * 1000;
       const scrapeTime = new Date(gameTime.getTime() - twoHoursInMs);
@@ -200,7 +206,7 @@ const initScrapingScheduler = async (
 
       // If the time now is within the scrapeTime and gameTime, we must scrape now since the window for scraping is currently active
       if (scrapeTime <= timeNow) {
-        startScraping(
+        await startScraping(
           db,
           fixtureRow,
           scrapeInterval,
@@ -221,7 +227,7 @@ const initScrapingScheduler = async (
           );
         });
       }
-    });
+    }
   } catch (error) {
     const errorMessage = getErrorMessage(error);
     logger.error(
@@ -235,22 +241,25 @@ const initScrapingScheduler = async (
  * Registers a fixture for scraping and starts the shared interval if not already running.
  * Also schedules a job at game time to stop scraping and mark the fixture as closed.
  */
-const startScraping = (
+const startScraping = async (
   db: Database,
   fixtureRow: FixtureRow,
   interval: number,
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
   scheduler: Scheduler,
-): void => {
+): Promise<void> => {
   const fixtureId = fixtureRow.fixture_id;
   const gameTime = new Date(fixtureRow.start_date);
 
-  // Add this fixture to the active set
+  // Launch browser only when the first fixture needs scraping
+  if (scheduler.getActiveFixtures().length === 0) {
+    logger.info("No active fixtures yet — initializing browser");
+    await siaService.initialize();
+  }
+
   scheduler.addFixture(fixtureRow);
 
-  // Start the shared interval if it's not already running.
-  // This callback scrapes ALL active fixtures each tick.
   scheduler.startScrapeInterval(interval, async () => {
     await scrapeAllFixtures(db, siaService, fdService, scheduler);
   });
@@ -260,6 +269,12 @@ const startScraping = (
     scheduler.removeFixture(fixtureId);
     await updateFixtureStatus(db, fixtureId, "close");
     logger.info({ fixtureId, gameTime }, "Game started, stopped scraping");
+
+    // Close browser when no more fixtures to scrape
+    if (scheduler.getActiveFixtures().length === 0) {
+      logger.info("No active fixtures remaining — closing browser");
+      await siaService.close();
+    }
   });
 
   logger.info({ fixtureId, gameTime }, "Started scraping fixture");

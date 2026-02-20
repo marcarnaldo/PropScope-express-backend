@@ -13,7 +13,6 @@ const app = express();
 const db = Database.getInstance();
 await initNbaSchema(db);
 const siaService = new SiaApiService();
-await siaService.initialize();
 const fdService = new FanduelOddsApiService();
 const scheduler = new Scheduler();
 
