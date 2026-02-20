@@ -76,7 +76,6 @@ export class BrowserManager {
 
         // close the setupPage since we are done setting up
         await setupPage.close();
-
         // Create a pool of idle pages at initialization
         await this.createPagePool();
         return;
@@ -125,13 +124,16 @@ export class BrowserManager {
 
   /** Create a pool of pages and push it to idlePages */
   private async createPagePool(): Promise<void> {
-    // We cannot create a page(tab) if there is no browser
     if (!this.browser) throw new Error("Browser not initialized");
 
-    // Push pages in idlePages to be distributed whenever a page is needed
     for (let i = 0; i < POOL_SIZE; i++) {
       const page = await this.browser.newPage();
       await this.enableResourceBlocking(page);
+      // Navigate to SIA so the page has the correct origin and cookies for fetch()
+      await page.goto(this.lastUrl!, {
+        waitUntil: "domcontentloaded",
+        timeout: 30000,
+      });
       this.idlePages.push(page);
     }
     logger.info({ poolSize: POOL_SIZE }, "Page pool created");
