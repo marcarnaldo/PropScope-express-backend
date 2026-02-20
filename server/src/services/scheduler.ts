@@ -66,6 +66,10 @@ export class Scheduler {
   /** Removes a fixture from scraping. Stops the shared interval if no fixtures remain. */
   removeFixture(fixtureId: number): void {
     this.activeFixtures.delete(fixtureId);
+    logger.info(
+      { fixtureId, remainingFixtures: this.activeFixtures.size },
+      "Removed fixture from active scraping",
+    );
     if (this.activeFixtures.size === 0) this.stopScrapeInterval();
   }
 
@@ -135,11 +139,13 @@ const fetchAndSchedule = async (
   try {
     await markStartedFixtures(db, sport);
     // Initialize the browser only when needed
+    logger.info("Initializing browser to fetch fixtures");
     await siaService.initialize();
     const fixtures: SiaFixture[] = await siaService.getFixtures(
       SIA_URLS.nba.fixtures,
     );
     // Close the browser once done
+    logger.info("Closing browser after fetching fixtures");
     await siaService.close();
 
     // Just exit if there are no NBA games today
@@ -147,6 +153,11 @@ const fetchAndSchedule = async (
       logger.info("No NBA games today, skipping");
       return;
     }
+
+    logger.info(
+      { fixtureCount: fixtures.length },
+      "Fetched today's NBA fixtures from Sports Interaction",
+    );
 
     // Save each fixture to db
     for (const fixture of fixtures) {
@@ -193,12 +204,21 @@ const initScrapingScheduler = async (
       const fixtureId = fixtureRow.fixture_id;
 
       // Check if the fixture is already being scraped. If so, we just skip it.
-      if (scheduler.isScrapingFixture(fixtureId)) continue;
+      if (scheduler.isScrapingFixture(fixtureId)) {
+        logger.info({ fixtureId }, "Fixture already being scraped, skipping");
+        continue;
+      }
 
       const gameTime = new Date(fixtureRow.start_date);
 
       // No need to scrape when the time now is already past game time or is game time
-      if (gameTime <= timeNow) continue;
+      if (gameTime <= timeNow) {
+        logger.info(
+          { fixtureId, gameTime },
+          "Game time already passed, skipping",
+        );
+        continue;
+      }
 
       const twoHoursInMs = 2 * 60 * 60 * 1000;
       const scrapeTime = new Date(gameTime.getTime() - twoHoursInMs);
@@ -206,6 +226,10 @@ const initScrapingScheduler = async (
 
       // If the time now is within the scrapeTime and gameTime, we must scrape now since the window for scraping is currently active
       if (scrapeTime <= timeNow) {
+        logger.info(
+          { fixtureId, gameTime },
+          "Scrape window already active, starting immediately",
+        );
         await startScraping(
           db,
           fixtureRow,
@@ -226,6 +250,10 @@ const initScrapingScheduler = async (
             scheduler,
           );
         });
+        logger.info(
+          { fixtureId, scrapeTime, gameTime },
+          "Scheduled scraping for later",
+        );
       }
     }
   } catch (error) {
@@ -259,6 +287,10 @@ const startScraping = async (
   }
 
   scheduler.addFixture(fixtureRow);
+  logger.info(
+    { fixtureId, activeCount: scheduler.getActiveFixtures().length },
+    "Added fixture to active scraping",
+  );
 
   scheduler.startScrapeInterval(interval, async () => {
     await scrapeAllFixtures(db, siaService, fdService, scheduler);
@@ -293,6 +325,7 @@ const updateOddsToDb = async (
   siaService: SiaApiService,
   fdService: FanduelOddsApiService,
 ): Promise<number | null> => {
+  logger.info({ fixtureId }, "Starting odds update for fixture");
   try {
     const aggregatedOdds = await aggregateSiaAndFdOdds(
       fixtureId,
@@ -344,11 +377,20 @@ const scrapeAllFixtures = async (
   if (activeFixtures.length === 0) return;
 
   const healthy = await siaService.isBrowserHealthy();
+
   if (!healthy) {
     logger.warn("Browser unhealthy, reinitializing before scrape cycle");
-    await siaService.close();
-    await siaService.initialize();
-    logger.info("Browser reinitialization successful");
+    try {
+      await siaService.close();
+      await siaService.initialize();
+      logger.info("Browser reinitialization successful");
+    } catch (error) {
+      logger.error(
+        { error: getErrorMessage(error) },
+        "Browser reinitialization failed, skipping scrape cycle",
+      );
+      return;
+    }
   }
 
   // Scrape all fixtures concurrently — each acquires its own tab from the page pool
@@ -376,4 +418,12 @@ const scrapeAllFixtures = async (
   if (updatedFixtureIds.length > 0) {
     sseManager.notifyBatchUpdate(updatedFixtureIds);
   }
+  logger.info(
+    {
+      total: activeFixtures.length,
+      succeeded: updatedFixtureIds.length,
+      failed: activeFixtures.length - updatedFixtureIds.length,
+    },
+    "Scrape cycle complete",
+  );
 };
