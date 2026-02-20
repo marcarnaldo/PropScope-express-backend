@@ -15,10 +15,13 @@ import proxyChain from "proxy-chain";
 
 puppeteer.use(StealthPlugin());
 
+const POOL_SIZE = 10;
+
 export class BrowserManager {
   private browser: Browser | null = null;
-  private page: Page | null = null;
   private lastUrl: string | null = null;
+  private idlePages: Page[] = [];
+  private activePages: Set<Page> = new Set();
 
   constructor() {}
 
@@ -36,10 +39,8 @@ export class BrowserManager {
 
         // Build the full proxy URL
         const oldProxyUrl = `http://${process.env.PROXY_USERNAME}:${process.env.PROXY_PASSWORD}@${process.env.PROXY_HOST}:${process.env.PROXY_PORT}`;
-
         // Spins up a local proxy on a random port that forwards to iProyal
         const newProxyUrl = await proxyChain.anonymizeProxy(oldProxyUrl);
-
         // Launch with the local proxy
         this.browser = await puppeteer.launch({
           headless: true,
@@ -50,17 +51,23 @@ export class BrowserManager {
           ],
         });
 
-        this.page = await this.browser.newPage();
+        // Create a tab at initialization
+        const setupPage = await this.browser.newPage();
 
-        await this.page.goto(url, {
+        await setupPage.goto(url, {
           waitUntil: "domcontentloaded", // We wait for the html to fully load to set the cookies, allow us to query, etc
           timeout: 30000, // We wait 30s for the page to respond. If not, we retry
         });
 
-        const pageTitle = await this.page.title();
-        const pageUrl = this.page.url();
+        const pageTitle = await setupPage.title();
+        const pageUrl = setupPage.url();
         logger.info({ pageTitle, pageUrl }, "Browser initialized successfully");
-        logger.info("Browser initialized successfully");
+        
+        // close the setupPage since we are done setting up
+        await setupPage.close();
+        
+        // Create a pool of idle pages at initialization
+        await this.createPagePool();
         return;
       } catch (error) {
         lastError = error;
@@ -93,58 +100,71 @@ export class BrowserManager {
     );
   }
 
+  /** Create a pool of pages and push it to idlePages */
+  private async createPagePool(): Promise<void> {
+    // We cannot create a page(tab) if there is no browser
+    if (!this.browser) throw new Error("Browser not initialized");
+
+    // Push pages in idlePages to be distributed whenever a page is needed
+    for (let i = 0; i < POOL_SIZE; i++) {
+      const page = await this.browser.newPage();
+      this.idlePages.push(page);
+    }
+    logger.info({ poolSize: POOL_SIZE }, "Page pool created");
+  }
+
+  /** Get a page from the pool of idlePages. If no page is present in idlePages, keep waiting until one is available to use. */
+  public async acquirePage(): Promise<Page> {
+    // We return a page if there is a page available in our pool
+    if (this.idlePages.length > 0) {
+      const page = this.idlePages.pop()!;
+      this.activePages.add(page);
+      return page;
+    }
+
+    logger.warn(
+      { active: this.activePages.size, idle: this.idlePages.length },
+      "No idle pages available, waiting",
+    );
+
+    // Check the pool of pages every 100ms until there is an available page to return
+    // The promise will only settle once it is resolved
+    return new Promise((resolve) => {
+      const interval = setInterval(() => {
+        if (this.idlePages.length > 0) {
+          clearInterval(interval);
+          const page = this.idlePages.pop()!;
+          this.activePages.add(page);
+          resolve(page);
+        }
+      }, 100);
+    });
+  }
+  /** Release the page from activePages and puts in back in idlePages */
+  public releasePage(page: Page): void {
+    // Put the page back to idlePages once done so others can use it
+    this.activePages.delete(page);
+    this.idlePages.push(page);
+  }
+
   /** Closes the browser and cleans up page/browser references. */
   public async closeBrowser(): Promise<void> {
     if (!this.browser) return;
-
-    // Close and clean the browser instance even if it throws an error
     await this.browser.close().catch(() => {});
     this.browser = null;
-    this.page = null;
-  }
-
-  /** Returns the active page. Throws if browser hasn't been initialized. */
-  public getPage(): Page {
-    if (!this.page) {
-      throw new Error(
-        "Browser not initialized. Call initializeBrowser() first.",
-      );
-    }
-    return this.page;
+    this.idlePages = [];
+    this.activePages.clear();
   }
 
   /** Checks if the browser and page are still responsive by running a small script. */
   public async isHealthy(): Promise<boolean> {
-    // return false is there is no page or browser yet
-    if (!this.browser || !this.page) return false;
-
+    if (!this.browser) return false;
     try {
-      // Run a small script in the page to confirm the browser and tab are still responsive
-      await this.page.evaluate(() => true);
+      const testPage = await this.browser.newPage();
+      await testPage.close();
       return true;
     } catch (error) {
       return false;
-    }
-  }
-
-  /** Checks browser health and automatically recovers by relaunching if unresponsive. */
-  public async ensureHealthy(): Promise<void> {
-    const healthy = await this.isHealthy();
-
-    if (!healthy) {
-      if (!this.lastUrl) {
-        throw new Error("Cannot recover: No URL stored.");
-      }
-      logger.warn("Browser unhealthy, attempting recovery...");
-      await this.closeBrowser();
-      await this.initializeBrowser(this.lastUrl);
-      logger.info("Browser recovery successful");
-    } else {
-      // Browser is alive but session might be stale, refresh it if so
-      await this.page!.goto(this.lastUrl!, {
-        waitUntil: "domcontentloaded",
-        timeout: 30000,
-      });
     }
   }
 }

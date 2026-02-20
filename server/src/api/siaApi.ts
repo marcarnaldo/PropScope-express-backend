@@ -21,8 +21,19 @@ import {
   SiaMarketOption,
   SiaFixtureParticipant,
   PlayerPropsResponse,
-  PropOdds,
 } from "../config/types.ts";
+
+const PAGE_TIMEOUT = 15000; // 15 seconds
+
+/** Races a promise against a timeout. Rejects if the promise takes too long. */
+const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error("Page evaluate timed out")), ms),
+    ),
+  ]);
+};
 
 export class SiaApiService {
   private browserManager: BrowserManager;
@@ -42,15 +53,19 @@ export class SiaApiService {
     let lastError;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      // Wait until there is an available page to use
+      const page = await this.browserManager.acquirePage();
       try {
-        await this.browserManager.ensureHealthy();
-        const page = this.browserManager.getPage();
-
-        const events = await page.evaluate(async (url: string) => {
-          const res = await fetch(url);
-          if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-          return res.json();
-        }, eventsUrl);
+        // If the page.evaluate does not succeed within 15 seconds, we must retry by throwing an error and letting the catch block do its thing
+        const events = await withTimeout(
+          page.evaluate(async (url: string) => {
+            const res = await fetch(url);
+            if (!res.ok)
+              throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            return res.json();
+          }, eventsUrl),
+          PAGE_TIMEOUT,
+        );
 
         return events.fixtures;
       } catch (error) {
@@ -70,6 +85,9 @@ export class SiaApiService {
           "getFixtures failed, retrying",
         );
         await new Promise((resolve) => setTimeout(resolve, waitTime));
+      } finally {
+        // Release the page back to the pool once done using
+        this.browserManager.releasePage(page);
       }
     }
 
@@ -79,19 +97,25 @@ export class SiaApiService {
   }
 
   /** Fetches a single fixture's full data including all option markets (player props, spreads, etc). */
-  private async getSpecificFixture(specificEventUrl: string): Promise<SiaFixture> {
+  private async getSpecificFixture(
+    specificEventUrl: string,
+  ): Promise<SiaFixture> {
     let lastError;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      // Wait until there is an available page to use
+      const page = await this.browserManager.acquirePage();
       try {
-        await this.browserManager.ensureHealthy();
-        const page = this.browserManager.getPage();
-
-        const events = await page.evaluate(async (url: string) => {
-          const res = await fetch(url);
-          if (!res.ok) throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-          return res.json();
-        }, specificEventUrl);
+        // If the page.evaluate does not succeed within 15 seconds, we must retry by throwing an error and letting the catch block do its thing
+        const events = await withTimeout(
+          page.evaluate(async (url: string) => {
+            const res = await fetch(url);
+            if (!res.ok)
+              throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+            return res.json();
+          }, specificEventUrl),
+          PAGE_TIMEOUT,
+        );
 
         return events.fixture; // instead of fixtures, we only need the fixture (1 specific event)
       } catch (error) {
@@ -112,6 +136,9 @@ export class SiaApiService {
         );
 
         await new Promise((resolve) => setTimeout(resolve, waitTime));
+      } finally {
+        // Release the page back to the pool once done using
+        this.browserManager.releasePage(page);
       }
     }
 
@@ -136,15 +163,16 @@ export class SiaApiService {
         SIA_URLS.nba.markets(fixtureId),
       );
 
-      const filteredMarket = specificFixture.optionMarkets?.filter(
-        (market: SiaMarket) =>
-          // Check if the market has a templateCategory of "Player specials" because the ones that I want belongs here
-          market.templateCategory?.name?.value === "Player specials" &&
-          // We must only get the ones with the same patterns as in the PROP_MARKETS_SIAAPI since that is all the over unders that I want
-          PROP_MARKETS_SIAAPI.NBA.some((pattern) =>
-            market.name.value.includes(pattern),
-          ),
-      ) ?? [];
+      const filteredMarket =
+        specificFixture.optionMarkets?.filter(
+          (market: SiaMarket) =>
+            // Check if the market has a templateCategory of "Player specials" because the ones that I want belongs here
+            market.templateCategory?.name?.value === "Player specials" &&
+            // We must only get the ones with the same patterns as in the PROP_MARKETS_SIAAPI since that is all the over unders that I want
+            PROP_MARKETS_SIAAPI.NBA.some((pattern) =>
+              market.name.value.includes(pattern),
+            ),
+        ) ?? [];
 
       const propsByPlayer: PlayerPropsResponse = {
         ht: homeTeam,
@@ -204,7 +232,8 @@ export class SiaApiService {
     participantId: number,
   ): string | undefined => {
     const player = fixture.participants?.find(
-      (participant: SiaFixtureParticipant) => participant.participantId === participantId,
+      (participant: SiaFixtureParticipant) =>
+        participant.participantId === participantId,
     );
     return player?.name.short;
   };

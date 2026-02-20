@@ -4,8 +4,10 @@
  * Manages the lifecycle of odds scraping for NBA games.
  * - Fetches fixtures from SIA hourly (6AM-11PM)
  * - Schedules scraping to start 2 hours before each game
- * - Scrapes odds every 5 minutes until game time
+ * - Scrapes odds every 5 minutes until game time using concurrent tab pool
+ * - Checks browser health once per scrape cycle, recovers if needed
  * - Stops scraping and marks fixture as "close" when the game starts
+ * - Sends one batched SSE event per cycle to notify connected clients
  */
 
 import schedule from "node-schedule";
@@ -33,8 +35,9 @@ import { sseManager } from "./sseManager.ts";
 
 export class Scheduler {
   private activeJobs: schedule.Job[];
-  // Stores fixture dat
+  // Stores fixture data for all games currently being scraped
   private activeFixtures: Map<number, FixtureRow>;
+  // Single shared interval that scrapes all active fixtures each tick
   private scrapeInterval: ReturnType<typeof setInterval> | null;
 
   constructor() {
@@ -43,35 +46,46 @@ export class Scheduler {
     this.scrapeInterval = null;
   }
 
+  /** Schedules a one-time job at a specific time (e.g. 2hrs before game, or at game time). */
   addJob(time: Date, callback: () => void): schedule.Job {
     const job = schedule.scheduleJob(time, callback);
     this.activeJobs.push(job);
     return job;
   }
 
+  /** Returns true if the fixture is already being actively scraped. */
   isScrapingFixture(fixtureId: number): boolean {
     return this.activeFixtures.has(fixtureId);
   }
 
+  /** Registers a fixture for scraping. */
   addFixture(fixtureRow: FixtureRow): void {
     this.activeFixtures.set(fixtureRow.fixture_id, fixtureRow);
   }
 
-  // If no more fixtures to scrape, stop the shared interval
+  /** Removes a fixture from scraping. Stops the shared interval if no fixtures remain. */
   removeFixture(fixtureId: number): void {
     this.activeFixtures.delete(fixtureId);
     if (this.activeFixtures.size === 0) this.stopScrapeInterval();
   }
 
+  /** Returns all fixtures currently being scraped. */
   getActiveFixtures(): FixtureRow[] {
     return Array.from(this.activeFixtures.values());
   }
 
+  /**
+   * Starts the shared scrape interval if not already running.
+   * Runs the callback immediately on start, then every `interval` ms.
+   * Only one interval exists at a time — all fixtures share it.
+   */
   startScrapeInterval(interval: number, callback: () => void): void {
     if (this.scrapeInterval) return;
+    callback();
     this.scrapeInterval = setInterval(callback, interval);
   }
 
+  /** Stops the shared scrape interval. */
   stopScrapeInterval(): void {
     if (this.scrapeInterval) {
       clearInterval(this.scrapeInterval);
@@ -79,6 +93,7 @@ export class Scheduler {
     }
   }
 
+  /** Cancels all scheduled jobs, clears active fixtures, and stops the scrape interval. */
   shutdown(): void {
     this.activeJobs.forEach((job) => job.cancel());
     this.activeJobs = [];
@@ -86,7 +101,7 @@ export class Scheduler {
     this.stopScrapeInterval();
   }
 }
-Map<number, FixtureRow>
+
 /**
  * Initializes the daily scheduler. Runs immediately on startup to catch up
  * after any downtime, then runs hourly (6AM-11PM) to pick up reschedules or cancellations.
@@ -98,7 +113,7 @@ export const initDailyScheduler = async (
   scheduler: Scheduler,
   sport: string,
 ): Promise<void> => {
-  // Run as soon as server server starts so that if server shutdown, we can just fetch asap
+  // Run as soon as server starts so that if server shutdown, we can just fetch asap
   await fetchAndSchedule(db, siaService, fdService, scheduler, sport);
   // We then run it hourly just to make sure we get any re-schedules, cancellations, etc.
   cron.schedule("0 6-23 * * *", () =>
@@ -129,7 +144,7 @@ const fetchAndSchedule = async (
       return;
     }
 
-    // save each fixture to db
+    // Save each fixture to db
     for (const fixture of fixtures) {
       await upsertFixture(db, fixture.id, fixture, fixture.startDate, sport);
     }
@@ -167,7 +182,7 @@ const initScrapingScheduler = async (
 
     const timeNow = new Date();
 
-    // For each game, schedule a scraper every 5 minute to save odds to db
+    // For each game, schedule a scraper every 5 minutes to save odds to db
     fixturesFromDb.forEach((fixtureRow: FixtureRow) => {
       const fixtureId = fixtureRow.fixture_id;
 
@@ -181,14 +196,14 @@ const initScrapingScheduler = async (
 
       const twoHoursInMs = 2 * 60 * 60 * 1000;
       const scrapeTime = new Date(gameTime.getTime() - twoHoursInMs);
-      const scrapeInteval = 60 * 5000; // 5 minutes
+      const scrapeInterval = 60 * 5000; // 5 minutes
 
-      // If the time now is within the scrapTime and gameTime, we must scrape now since the window for scraping is currently active
+      // If the time now is within the scrapeTime and gameTime, we must scrape now since the window for scraping is currently active
       if (scrapeTime <= timeNow) {
         startScraping(
           db,
           fixtureRow,
-          scrapeInteval,
+          scrapeInterval,
           siaService,
           fdService,
           scheduler,
@@ -199,7 +214,7 @@ const initScrapingScheduler = async (
           startScraping(
             db,
             fixtureRow,
-            scrapeInteval,
+            scrapeInterval,
             siaService,
             fdService,
             scheduler,
@@ -217,10 +232,9 @@ const initScrapingScheduler = async (
 };
 
 /**
- * Starts the 5-minute interval scraper for a fixture.
+ * Registers a fixture for scraping and starts the shared interval if not already running.
  * Also schedules a job at game time to stop scraping and mark the fixture as closed.
  */
-// NEW startScraping — just registers fixture, starts shared interval if not running
 const startScraping = (
   db: Database,
   fixtureRow: FixtureRow,
@@ -235,8 +249,8 @@ const startScraping = (
   // Add this fixture to the active set
   scheduler.addFixture(fixtureRow);
 
-  // Start the shared interval if it's not already running
-  // This callback scrapes ALL active fixtures each tick
+  // Start the shared interval if it's not already running.
+  // This callback scrapes ALL active fixtures each tick.
   scheduler.startScrapeInterval(interval, async () => {
     await scrapeAllFixtures(db, siaService, fdService, scheduler);
   });
@@ -252,8 +266,10 @@ const startScraping = (
 };
 
 /**
- * Fetches odds from both SIA and FanDuel, filters to matching lines,
- * normalizes (removes vig), and saves the snapshot to the database.
+ * Fetches odds from both SIA and FanDuel for a single fixture,
+ * filters to matching lines, normalizes (removes vig),
+ * and saves the snapshot to the database.
+ * Returns the fixtureId on success, null on failure.
  */
 const updateOddsToDb = async (
   db: Database,
@@ -282,8 +298,8 @@ const updateOddsToDb = async (
     const normalizedOdds = normalizeOdds(filteredOdds);
     await insertOddsSnapshot(db, fixtureId, normalizedOdds);
 
-    logger.info({ fixtureId }, "updated odds for fixture");
-    return fixtureId; // Return instead of notifying SSE
+    logger.info({ fixtureId }, "Updated odds for fixture");
+    return fixtureId;
   } catch (error) {
     const errorMessage = getErrorMessage(error);
     logger.error(
@@ -294,7 +310,15 @@ const updateOddsToDb = async (
   }
 };
 
-// NEW — scrapes all active fixtures, sends one batched SSE event
+/**
+ * Scrapes all active fixtures concurrently, then sends one batched SSE event.
+ *
+ * Flow per cycle:
+ * 1. Check browser health — reinitialize if the browser is unresponsive
+ * 2. Scrape all fixtures in parallel via Promise.allSettled (each gets its own browser tab from the pool)
+ * 3. Collect successful fixture IDs
+ * 4. Send a single SSE event with all updated fixture IDs to notify connected clients
+ */
 const scrapeAllFixtures = async (
   db: Database,
   siaService: SiaApiService,
@@ -302,10 +326,17 @@ const scrapeAllFixtures = async (
   scheduler: Scheduler,
 ): Promise<void> => {
   const activeFixtures = scheduler.getActiveFixtures();
-  logger.info({ count: activeFixtures.length }, "Scraping all active fixtures");
   if (activeFixtures.length === 0) return;
 
-  // Scrape all fixtures concurrently
+  const healthy = await siaService.isBrowserHealthy();
+  if (!healthy) {
+    logger.warn("Browser unhealthy, reinitializing before scrape cycle");
+    await siaService.close();
+    await siaService.initialize();
+    logger.info("Browser reinitialization successful");
+  }
+
+  // Scrape all fixtures concurrently — each acquires its own tab from the page pool
   const results = await Promise.allSettled(
     activeFixtures.map((fixtureRow) =>
       updateOddsToDb(
