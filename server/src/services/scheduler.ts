@@ -220,9 +220,9 @@ const initScrapingScheduler = async (
         continue;
       }
 
-      const twoHoursInMs = 2 * 60 * 60 * 1000;
-      const scrapeTime = new Date(gameTime.getTime() - twoHoursInMs);
-      const scrapeInterval = 60 * 5000; // 5 minutes
+      const oneHourInMs = 60 * 60 * 1000; // 1 hour
+      const scrapeTime = new Date(gameTime.getTime() - oneHourInMs);
+      const scrapeInterval = 5 * 60 * 1000; // 5 minutes
 
       // If the time now is within the scrapeTime and gameTime, we must scrape now since the window for scraping is currently active
       if (scrapeTime <= timeNow) {

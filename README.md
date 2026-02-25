@@ -1,6 +1,6 @@
 # NBA Player Props Odds Scraper
 
-A backend service that scrapes and compares NBA player prop odds from **Sports Interaction (SIA)** and **FanDuel** to identify pricing discrepancies between sportsbooks. Removes the vig (juice) from both books to calculate true implied probabilities.
+A backend service that scrapes and compares NBA player prop odds from **Sports Interaction (SIA)** and **FanDuel** to find pricing discrepancies between sportsbooks. Removes the vig (juice) from both books to calculate true implied probabilities.
 
 ## How It Works
 
@@ -26,11 +26,16 @@ FanDuel ───┘
 
 The scraper doesn't run 24/7. It uses a smart scheduling approach:
 
-- **Hourly (6AM–11PM)** — Fetches today's fixtures from SIA and saves them to the database.
-- **2 hours before each game** — Starts scraping odds every 5 minutes.
+- **On startup** — Immediately fetches today's fixtures from SIA and saves them to the database. This handles recovery after any downtime.
+- **Daily at 6AM** — Fetches fixtures again via cron to pick up any schedule changes.
+- **1 hour before each game** — Starts scraping odds every 5 minutes. If the 1-hour window is already active at startup, scraping begins immediately.
 - **At game time** — Stops scraping and marks the fixture as closed.
 
-This saves API credits (The Odds API charges per request) and avoids unnecessary load when there are no games.
+The browser is only launched when there are active fixtures to scrape and is closed when no fixtures remain, saving resources.
+
+### Real-Time Updates
+
+Connected clients receive live updates via Server-Sent Events (SSE). After each scrape cycle, a single batched event is sent with all fixture IDs that were successfully updated.
 
 ### Vig Removal Math
 
@@ -46,26 +51,28 @@ This gives the true probability each book assigns to over/under, enabling fair c
 
 ## Supported Markets
 
-| Market Type                       | Example Bet                          |
-| --------------------------------- | ------------------------------------ |
-| Points                            | Jason Tatum **Over 25.5 Points**     |
-| Rebounds                          | Jason Tatum **Over 8.5 Rebounds**    |
-| Assists                           | Jason Tatum **Over 5.5 Assists**     |
-| Three-Pointers Made               | Jason Tatum **Over 2.5 Threes Made** |
-| Points + Rebounds + Assists (PRA) | Jason Tatum **Over 39.5 PRA**        |
-| Points + Assists (PA)             | Jason Tatum **Over 31.5 PA**         |
-| Points + Rebounds (PR)            | Jason Tatum **Over 34.5 PR**         |
-| Rebounds + Assists (RA)           | Jason Tatum **Over 14.5 RA**         |
+| Market                      | Example                    |
+| --------------------------- | -------------------------- |
+| Points                      | J. Tatum Over 25.5 Points  |
+| Rebounds                    | J. Tatum Over 8.5 Rebounds |
+| Assists                     | J. Tatum Over 5.5 Assists  |
+| Three-Pointers Made         | J. Tatum Over 2.5 3PM      |
+| Points + Rebounds + Assists | J. Tatum Over 39.5 PRA     |
+| Points + Assists            | J. Tatum Over 31.5 PA      |
+| Points + Rebounds           | J. Tatum Over 34.5 PR      |
+| Rebounds + Assists          | J. Tatum Over 14.5 RA      |
 
 
 ## Tech Stack
 
-- **Runtime** — Node.js with TypeScript
+- **Runtime** — Node.js with JavaScript
 - **Web Scraping** — Puppeteer with Stealth Plugin (bypasses Cloudflare)
-- **Database** — PostgreSQL
-- **Scheduling** — node-schedule (date-specific jobs) + node-cron (hourly recurring)
-- **Logging** — Pino (structured JSON logging)
-- **External API** — The Odds API (FanDuel data)
+- **Database** — PostgreSQL (singleton connection pool via `pg`)
+- **Scheduling** — node-schedule (one-time date jobs) + node-cron (daily recurring)
+- **Real-Time** — Server-Sent Events (SSE)
+- **Logging** — Pino (structured JSON)
+- **External API** — [The Odds API](https://the-odds-api.com) (FanDuel data)
+- **Proxy** — proxy-chain + iProyal residential proxies
 
 ## Project Structure
 
@@ -75,7 +82,7 @@ src/
 │   ├── siaApi.ts              # SIA scraper (headless browser)
 │   └── oddsApi.ts             # FanDuel via The Odds API
 ├── config/
-│   ├── interfaces.ts          # TypeScript interfaces
+│   ├── types.ts               # TypeScript interfaces and constants
 │   ├── siaConstants.ts        # SIA URLs and market patterns
 │   └── oddsapiConstants.ts    # Odds API config and markets
 ├── db/
@@ -85,70 +92,58 @@ src/
 ├── services/
 │   ├── scheduler.ts           # Job scheduling and scraping lifecycle
 │   ├── oddsAggregator.ts      # Merge, filter, and normalize odds
-│   └── browser.ts             # Puppeteer browser manager with auto-recovery
+│   ├── browser.ts             # Puppeteer browser manager with page pool and auto-recovery
+│   └── sseManager.ts          # SSE client manager for real-time updates
 ├── utils/
 │   └── errorHandling.ts       # Logger and error utilities
 └── index.ts                   # Express server entry point
 ```
 
-## API Endpoints
+## API
 
-### `GET /nba/games`
+### `GET /sse/odds`
 
-Returns today's NBA fixtures.
+SSE endpoint. Clients connect here to receive real-time odds update notifications.
 
-```json
-[
-  {
-    "fixtureId": 12345,
-    "homeTeam": "Boston Celtics",
-    "awayTeam": "Miami Heat",
-    "startDate": "2025-02-10T00:00:00Z",
-    "status": "open"
-  }
-]
-```
+**Events:**
 
-### `GET /nba/odds/:fixtureId/history`
-
-Returns all odds snapshots for a fixture in chronological order. Useful for tracking line movement.
+- `connected` — Sent immediately on connection as a heartbeat.
+- `odds-update` — Sent after each scrape cycle with the fixture IDs that were updated.
 
 ```json
-[
-  {
-    "fixtureId": 12345,
-    "oddsData": {
-      "homeTeam": "Boston Celtics",
-      "awayTeam": "Miami Heat",
-      "props": {
-        "J. Tatum": {
-          "points": {
-            "line": 25.5,
-            "siaOdds": { "over": -110, "under": -110 },
-            "fdOdds": { "over": -115, "under": -105 },
-            "siaOddsNoVig": { "over": 0.5, "under": 0.5 },
-            "fdOddsNoVig": { "over": 0.525, "under": 0.475 }
-          }
-        }
-      }
-    },
-    "snapshotTime": "2025-02-10T17:30:00Z"
-  }
-]
+event: odds-update
+data: {"fixtureIds": [12345, 67890]}
 ```
 
-### `GET /health`
+## Database Schema
 
-Health check for the server, database, and browser.
+### `fixtures`
 
-```json
-{
-  "status": "healthy",
-  "database": "connected",
-  "browser": "alive",
-  "uptime": 3600
-}
-```
+Stores today's games and their metadata.
+
+| Column     | Type         | Description                       |
+| ---------- | ------------ | --------------------------------- |
+| fixture_id | INTEGER (PK) | Unique fixture ID from SIA        |
+| sport      | VARCHAR(20)  | Sport identifier (e.g. `nba`)     |
+| home_team  | VARCHAR(100) | Home team name                    |
+| away_team  | VARCHAR(100) | Away team name                    |
+| start_date | TIMESTAMPTZ  | Scheduled game start time         |
+| status     | VARCHAR(20)  | `open` or `closed`                |
+| raw_data   | JSONB        | Full raw fixture payload from SIA |
+| created_at | TIMESTAMPTZ  | Row creation time                 |
+| updated_at | TIMESTAMPTZ  | Row update time                   |
+
+
+### `odds_snapshots`
+
+Point-in-time snapshots of normalized odds for each fixture.
+
+| Column        | Type                               | Description                      |
+| ------------- | ---------------------------------- | -------------------------------- |
+| fixture_id    | INTEGER (FK → fixtures.fixture_id) | References the related fixture   |
+| snapshot_time | TIMESTAMPTZ                        | When the snapshot was recorded   |
+| odds_data     | JSONB                              | Normalized odds with vig removed |
+
 
 ## Setup
 
@@ -163,7 +158,6 @@ Health check for the server, database, and browser.
 Create a `.env` file:
 
 ```env
-PORT=3000
 LOG_LEVEL=info
 
 # PostgreSQL
@@ -171,10 +165,16 @@ DB_HOST=localhost
 DB_PORT=5432
 DB_USER=your_user
 DB_PASSWORD=your_password
-DB_NAME=odds_db
+DB_NAME=oddsdb
 
 # The Odds API (https://the-odds-api.com)
 ODDS_API_KEY=your_api_key
+
+# Residential Proxy (for SIA scraping)
+PROXY_HOST=your_proxy_host
+PROXY_PORT=your_proxy_port
+PROXY_USERNAME=your_proxy_user
+PROXY_PASSWORD=your_proxy_password
 ```
 
 ### Installation
@@ -193,35 +193,8 @@ npm run dev
 npm start
 ```
 
-The server will automatically create the database tables on startup, fetch today's fixtures, and begin scheduling scrapers.
-
-## Database Schema
-
-### `nba_fixtures`
-
-Stores today's games and their metadata.
-
-| Column     | Type         | Description                                     |
-| ---------- | ------------ | ----------------------------------------------- |
-| fixture_id | INTEGER (PK) | Unique fixture ID from Sports Interaction (SIA) |
-| home_team  | VARCHAR(100) | Home team name                                  |
-| away_team  | VARCHAR(100) | Away team name                                  |
-| start_date | TIMESTAMPTZ  | Scheduled game start time                       |
-| status     | VARCHAR(20)  | Fixture status (`open` or `closed`)             |
-| raw_data   | JSONB        | Full raw fixture payload from SIA API           |
-
-
-### `nba_odds_snapshots`
-
-Point-in-time snapshots of normalized odds for each fixture.
-
-| Column        | Type         | Description                                   |
-| ------------- | ------------ | --------------------------------------------- |
-| fixture_id    | INTEGER (FK) | References `sia_fixtures.fixture_id`          |
-| odds_data     | JSONB        | Normalized odds data with vig removed         |
-| snapshot_time | TIMESTAMPTZ  | Timestamp when the odds snapshot was recorded |
-
+The server automatically creates database tables on startup, fetches today's fixtures, and begins scheduling scrapers. It listens on port 3001.
 
 ## Error Handling
 
-Every external call (SIA scraping, Odds API, database) uses retry logic with exponential backoff (3 attempts). The browser manager automatically detects when Puppeteer becomes unresponsive and relaunches it. Structured logging via Pino makes it easy to trace failures in production.
+Every external call (SIA scraping, Odds API, database) uses retry logic with exponential backoff (up to 3 attempts). The browser manager maintains a pool of 3 reusable pages and checks browser health before each scrape cycle, automatically relaunching if Puppeteer becomes unresponsive. All logging is structured JSON via Pino.
