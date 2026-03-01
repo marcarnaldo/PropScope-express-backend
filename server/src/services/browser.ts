@@ -162,7 +162,7 @@ export class BrowserManager {
       const page = await this.browser.newPage();
       await this.enableResourceBlocking(page);
       // Navigate to SIA so the page has the correct origin and cookies for fetch()
-      await page.goto("https://www.sportsinteraction.com/favicon.ico", {
+      await page.goto("https://www.sportsinteraction.com", {
         waitUntil: "domcontentloaded",
         timeout: 30000,
       });
