@@ -12,6 +12,7 @@ import { getErrorMessage, MAX_RETRIES } from "../utils/errorHandling";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { logger } from "../utils/errorHandling";
 import proxyChain from "proxy-chain";
+import crypto from "crypto";
 
 puppeteer.use(StealthPlugin());
 
@@ -28,11 +29,29 @@ const BLOCKED_RESOURCE_TYPES = new Set([
   "other",
 ]);
 
+const generateSessionId = (): string => crypto.randomBytes(4).toString("hex");
+
+/**
+ * Builds the IPRoyal proxy password with a fresh session ID.
+ * Takes the base password (everything before _session-) and appends a new session.
+ *
+ * Example:
+ *   base: S8AzxIWTu6FxZirE_country-ca_city-vancouver
+ *   result: S8AzxIWTu6FxZirE_country-ca_city-vancouver_session-a1b2c3d4_lifetime-24h
+ */
+const buildProxyPassword = (): string => {
+  const basePassword = process.env.PROXY_PASSWORD_BASE;
+  const lifetime = process.env.PROXY_LIFETIME || "24h";
+  const sessionId = generateSessionId();
+  return `${basePassword}_session-${sessionId}_lifetime-${lifetime}`;
+};
+
 export class BrowserManager {
   private browser: Browser | null = null;
   private lastUrl: string | null = null;
   private idlePages: Page[] = [];
   private activePages: Set<Page> = new Set();
+  private currentSessionId: string | null = null;
 
   constructor() {}
 
@@ -43,14 +62,23 @@ export class BrowserManager {
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
+        // Generate a fresh session ID for each attempt so we get a new IP
+        const proxyPassword = buildProxyPassword();
+        this.currentSessionId =
+          proxyPassword.match(/_session-([^_]+)/)?.[1] || null;
+
         logger.info(
-          { attempt, maxRetries: MAX_RETRIES },
-          "Attempting to launch browser",
+          {
+            attempt,
+            maxRetries: MAX_RETRIES,
+            sessionId: this.currentSessionId,
+          },
+          "Attempting to launch browser with fresh proxy session",
         );
 
-        // Build the full proxy URL
-        const oldProxyUrl = `http://${process.env.PROXY_USERNAME}:${process.env.PROXY_PASSWORD}@${process.env.PROXY_HOST}:${process.env.PROXY_PORT}`;
-        // Spins up a local proxy on a random port that forwards to iProyal
+        // Build the full proxy URL with the fresh session
+        const oldProxyUrl = `http://${process.env.PROXY_USERNAME}:${proxyPassword}@${process.env.PROXY_HOST}:${process.env.PROXY_PORT}`;
+        // Spins up a local proxy on a random port that forwards to IPRoyal
         const newProxyUrl = await proxyChain.anonymizeProxy(oldProxyUrl);
         // Launch with the local proxy
         this.browser = await puppeteer.launch({
@@ -72,7 +100,10 @@ export class BrowserManager {
 
         const pageTitle = await setupPage.title();
         const pageUrl = setupPage.url();
-        logger.info({ pageTitle, pageUrl }, "Browser initialized successfully");
+        logger.info(
+          { pageTitle, pageUrl, sessionId: this.currentSessionId },
+          "Browser initialized successfully",
+        );
 
         // close the setupPage since we are done setting up
         await setupPage.close();
@@ -84,7 +115,7 @@ export class BrowserManager {
 
         const errorMessage = getErrorMessage(error);
 
-        // Clean and close the browser instance since we will retry
+        // Clean and close the browser instance since we will retry with a new session
         await this.closeBrowser();
 
         if (attempt === MAX_RETRIES) break;
@@ -97,8 +128,9 @@ export class BrowserManager {
             maxRetries: MAX_RETRIES,
             error: errorMessage,
             waitMs: waitTime,
+            sessionId: this.currentSessionId,
           },
-          "failed to initialize a browser, retrying",
+          "Failed to initialize browser, rotating proxy session and retrying",
         );
 
         await new Promise((resolve) => setTimeout(resolve, waitTime));
