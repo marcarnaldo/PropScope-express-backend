@@ -120,8 +120,10 @@ export const initDailyScheduler = async (
   // Run as soon as server starts so that if server shutdown, we can just fetch asap
   await fetchAndSchedule(db, siaService, fdService, scheduler, sport);
   // Fetch once daily at 6AM — NBA schedules don't change intraday
-  cron.schedule("0 6 * * *", () =>
-    fetchAndSchedule(db, siaService, fdService, scheduler, sport),
+  cron.schedule(
+    "0 6 * * *",
+    () => fetchAndSchedule(db, siaService, fdService, scheduler, sport),
+    { timezone: "America/Vancouver" },
   );
 };
 
@@ -177,8 +179,8 @@ const fetchAndSchedule = async (
 };
 
 /**
- * For each open fixture today, schedules a scraper to start 2 hours before game time.
- * If the scraping window is already active (less than 2 hours to game), starts immediately.
+ * For each open fixture today, schedules a scraper to start 1 hours before game time.
+ * If the scraping window is already active (less than 1 hours to game), starts immediately.
  * Skips fixtures that are already being scraped.
  */
 const initScrapingScheduler = async (
@@ -240,15 +242,22 @@ const initScrapingScheduler = async (
         );
       } else {
         // We schedule scraping later if the scrape window is still not hit
-        scheduler.addJob(scrapeTime, () => {
-          startScraping(
-            db,
-            fixtureRow,
-            scrapeInterval,
-            siaService,
-            fdService,
-            scheduler,
-          );
+        scheduler.addJob(scrapeTime, async () => {
+          try {
+            await startScraping(
+              db,
+              fixtureRow,
+              scrapeInterval,
+              siaService,
+              fdService,
+              scheduler,
+            );
+          } catch (error) {
+            logger.error(
+              { fixtureId, error: getErrorMessage(error) },
+              "Failed to start scheduled scraping",
+            );
+          }
         });
         logger.info(
           { fixtureId, scrapeTime, gameTime },
@@ -265,6 +274,7 @@ const initScrapingScheduler = async (
   }
 };
 
+let browserInitializing = false;
 /**
  * Registers a fixture for scraping and starts the shared interval if not already running.
  * Also schedules a job at game time to stop scraping and mark the fixture as closed.
@@ -282,8 +292,20 @@ const startScraping = async (
 
   // Launch browser only when the first fixture needs scraping
   if (scheduler.getActiveFixtures().length === 0) {
-    logger.info("No active fixtures yet — initializing browser");
-    await siaService.initialize();
+    if (browserInitializing) {
+      // Another fixture is already initializing — wait for it
+      while (browserInitializing) {
+        await new Promise((resolve) => setTimeout(resolve, 200));
+      }
+    } else {
+      browserInitializing = true;
+      try {
+        logger.info("No active fixtures yet — initializing browser");
+        await siaService.initialize();
+      } finally {
+        browserInitializing = false;
+      }
+    }
   }
 
   scheduler.addFixture(fixtureRow);
@@ -298,14 +320,20 @@ const startScraping = async (
 
   // Schedule stop at game time
   scheduler.addJob(gameTime, async () => {
-    scheduler.removeFixture(fixtureId);
-    await updateFixtureStatus(db, fixtureId, "close");
-    logger.info({ fixtureId, gameTime }, "Game started, stopped scraping");
+    try {
+      scheduler.removeFixture(fixtureId);
+      await updateFixtureStatus(db, fixtureId, "close");
+      logger.info({ fixtureId, gameTime }, "Game started, stopped scraping");
 
-    // Close browser when no more fixtures to scrape
-    if (scheduler.getActiveFixtures().length === 0) {
-      logger.info("No active fixtures remaining — closing browser");
-      await siaService.close();
+      if (scheduler.getActiveFixtures().length === 0) {
+        logger.info("No active fixtures remaining — closing browser");
+        await siaService.close();
+      }
+    } catch (error) {
+      logger.error(
+        { fixtureId, error: getErrorMessage(error) },
+        "Failed to stop scraping at game time",
+      );
     }
   });
 
@@ -379,7 +407,9 @@ const scrapeAllFixtures = async (
   const healthy = await siaService.isBrowserHealthy();
 
   if (!healthy) {
-    logger.warn("Browser unhealthy, reinitializing before scrape cycle");
+    logger.warn(
+      "Browser unhealthy, reinitializing before scrape cycle — check reinitCount in browser logs",
+    );
     try {
       await siaService.close();
       await siaService.initialize();

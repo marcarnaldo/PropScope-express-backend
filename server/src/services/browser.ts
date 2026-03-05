@@ -26,6 +26,7 @@ const BLOCKED_RESOURCE_TYPES = new Set([
   "texttrack",
   "eventsource",
   "manifest",
+  "script",
   "other",
 ]);
 
@@ -52,11 +53,18 @@ export class BrowserManager {
   private idlePages: Page[] = [];
   private activePages: Set<Page> = new Set();
   private currentSessionId: string | null = null;
+  private reinitCount: number = 0;
 
   constructor() {}
 
   /** Launches a headless browser and navigates to the given URL to establish session/cookies. */
   public async initializeBrowser(url: string): Promise<void> {
+    this.reinitCount++;
+    logger.info(
+      { reinitCount: this.reinitCount, sessionId: this.currentSessionId },
+      "Browser initialization requested",
+    );
+
     this.lastUrl = url;
     let lastError;
 
@@ -162,7 +170,7 @@ export class BrowserManager {
       const page = await this.browser.newPage();
       await this.enableResourceBlocking(page);
       // Navigate to SIA so the page has the correct origin and cookies for fetch()
-      await page.goto("https://www.sportsinteraction.com", {
+      await page.goto("https://www.sportsinteraction.com/favicon.ico", {
         waitUntil: "domcontentloaded",
         timeout: 30000,
       });
