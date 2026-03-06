@@ -16,6 +16,7 @@ import {
   AggregatedProp,
   FilteredOdds,
   NormalizedOdds,
+  NormalizedProp,
   PlayerPropsResponse,
   PropOdds,
   SiaFixture,
@@ -73,7 +74,10 @@ export const aggregateSiaAndFdOdds = async (
     return aggregatedOdds;
   } catch (error) {
     const errorMessage = getErrorMessage(error);
-    logger.error({ fixtureId, error: errorMessage}, "Failed to aggregate odds of both Fanduel and Sportsinteraction")
+    logger.error(
+      { fixtureId, error: errorMessage },
+      "Failed to aggregate odds of both Fanduel and Sportsinteraction",
+    );
 
     return null;
   }
@@ -118,7 +122,9 @@ const aggregatePlayerProps = (
  * have the same line. Drops mismatched lines since comparing odds
  * is only meaningful when the line is identical.
  */
-export const filterSameLines = (aggregatedData: AggregatedOdds): FilteredOdds => {
+export const filterSameLines = (
+  aggregatedData: AggregatedOdds,
+): FilteredOdds => {
   const filteredLines: FilteredOdds = {
     homeTeam: aggregatedData.ht,
     awayTeam: aggregatedData.at,
@@ -132,7 +138,7 @@ export const filterSameLines = (aggregatedData: AggregatedOdds): FilteredOdds =>
       const prop = propData as AggregatedProp;
 
       // Sportsbooks does not always have the same lines, we skip those
-      if (prop.sia.line !== prop.fd.line) continue;
+      // if (prop.sia.line !== prop.fd.line) continue;
 
       // If the player is not yet in props, make an entry for it
       if (!filteredLines.props[playerName])
@@ -140,7 +146,8 @@ export const filterSameLines = (aggregatedData: AggregatedOdds): FilteredOdds =>
 
       // Populate the player with the type of prop and odds of both sportsbooks
       filteredLines.props[playerName][propType] = {
-        line: prop.fd.line,
+        fdLine: prop.fd.line,
+        siaLine: prop.sia.line,
         siaOdds: {
           over: prop.sia.over,
           under: prop.sia.under,
@@ -159,10 +166,13 @@ export const filterSameLines = (aggregatedData: AggregatedOdds): FilteredOdds =>
  * Removes the vig (juice) from both SIA and FanDuel odds to get
  * the true implied probabilities. Uses power method (binary search)
  * to find the exponent that makes probabilities sum to 1.
+ *
+ * When lines differ between books, uses Poisson distribution to
+ * calculate what SIA should be pricing at based on FD's sharp line.
+ * The edge is the gap between the fair probability and what SIA charges.
  */
 export const normalizeOdds = (filteredLines: FilteredOdds): NormalizedOdds => {
   const removedVig: NormalizedOdds = {
-
     props: {},
   };
 
@@ -182,9 +192,38 @@ export const normalizeOdds = (filteredLines: FilteredOdds): NormalizedOdds => {
         propData.fdOdds.under,
       );
 
+      // Calculate edge when lines differ using Poisson
+      let edge: NormalizedProp["edge"];
+      if (propData.fdLine !== propData.siaLine) {
+        const lambda = solveLambda(propData.fdLine, fdOverNoVig);
+        const fairOverAtSiaLine =
+          1 - poissonCdf(Math.ceil(propData.siaLine) - 1, lambda);
+        const fairUnderAtSiaLine = 1 - fairOverAtSiaLine;
+        // Pick whichever side has the bigger edge
+        const overEdge = fairOverAtSiaLine - siaOverNoVig;
+        const underEdge = fairUnderAtSiaLine - siaUnderNoVig;
+
+        if (overEdge > underEdge) {
+          edge = {
+            side: "over",
+            fairProb: fairOverAtSiaLine,
+            siaNoVigProb: siaOverNoVig,
+            edgePct: overEdge,
+          };
+        } else {
+          edge = {
+            side: "under",
+            fairProb: fairUnderAtSiaLine,
+            siaNoVigProb: siaUnderNoVig,
+            edgePct: underEdge,
+          };
+        }
+      }
+
       // Populate the player with the type of prop and all the required information
       removedVig.props[playerName][propType] = {
-        line: propData.line,
+        fdLine: propData.fdLine,
+        siaLine: propData.siaLine,
         siaOdds: {
           over: propData.siaOdds.over,
           under: propData.siaOdds.under,
@@ -201,6 +240,7 @@ export const normalizeOdds = (filteredLines: FilteredOdds): NormalizedOdds => {
           over: fdOverNoVig,
           under: fdUnderNoVig,
         },
+        edge,
       };
     }
   }
@@ -237,4 +277,79 @@ const removeVig = (overOdds: number, underOdds: number): [number, number] => {
 const toImpliedProbability = (odds: number): number => {
   if (odds < 0) return Math.abs(odds) / (Math.abs(odds) + 100);
   return 100 / (odds + 100);
+};
+
+const factorial = (n: number): number => {
+  let result = 1;
+  for (let i = 2; i <= n; i++) {
+    result *= i;
+  }
+  return result;
+};
+
+/**
+ * Calculates the probability of a player hitting k or fewer of something
+ * (points, rebounds, assists, etc.) using the Poisson distribution.
+ *
+ * For example, poissonCdf(7, 7.8) answers:
+ * "If a player averages 7.8 points, what's the probability they score 7 or fewer?"
+ *
+ * We use this to find edges when SIA and FD have different lines:
+ * - FD says over 7.5 points is 55% likely (after removing vig)
+ * - We use that to figure out the player's expected scoring rate (lambda)
+ * - Then we ask: "What should over 6.5 actually be priced at?"
+ * - If SIA is pricing over 6.5 lower than it should be, that's our edge
+ */
+const poissonCdf = (k: number, lambda: number): number => {
+  let sum = 0; // this will store the running total of probabilities
+
+  // Loop from 0 events up to k events
+  for (let i = 0; i <= Math.floor(k); i++) {
+    // Add the probability of getting exactly i events
+    // Poisson formula: (λ^i * e^-λ) / i!
+    sum += (Math.pow(lambda, i) * Math.exp(-lambda)) / factorial(i);
+  }
+
+  // After adding all probabilities from 0 to k,
+  // we return the final cumulative probability
+  return sum;
+};
+
+/**
+ * Finds the player's expected output (lambda) using FD's line and no-vig probability.
+ *
+ * FD is the sharp book, so their odds reflect the best estimate of reality.
+ * If FD says over 7.5 points is 55% likely, we work backwards to find
+ * "what average scoring rate would make over 7.5 exactly 55% likely?"
+ *
+ * Uses binary search — we keep guessing lambda values between 0 and 100,
+ * checking if the resulting probability is too high or too low,
+ * and narrowing the range until we converge on the right answer.
+ * Same approach as the removeVig function.
+ */
+const solveLambda = (line: number, overProb: number): number => {
+  // Start with a wide range where lambda could be
+  let lo = 0,
+    hi = 100;
+
+  // Repeat the search 100 times to narrow down the correct lambda
+  for (let i = 0; i < 100; i++) {
+    // Take the middle value between low and high
+    const mid = (lo + hi) / 2;
+
+    // Calculate probability of going OVER the line using Poisson
+    // Example: line = 7.5 → we need probability of 8 or more
+    const prob = 1 - poissonCdf(Math.ceil(line) - 1, mid);
+
+    // If our probability is too big, lambda is too big
+    // so we move the upper bound down
+    if (prob > overProb) hi = mid;
+    // If probability is too small, lambda is too small
+    // so we move the lower bound up
+    else lo = mid;
+  }
+
+  // After narrowing the range many times,
+  // return the middle as our best estimate for lambda
+  return (lo + hi) / 2;
 };

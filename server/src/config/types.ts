@@ -7,10 +7,10 @@ export interface PropOdds {
 }
 
 export const SPORTS = {
-  NBA: 'nba',
-  NFL: 'nfl',
-  NHL: 'nhl'
-}
+  NBA: "nba",
+  NFL: "nfl",
+  NHL: "nhl",
+};
 
 // ===== SIA API Shapes (external) =====
 
@@ -96,7 +96,8 @@ export interface AggregatedOdds {
 // ===== Filtered (only props where SIA and FD have the same line) =====
 
 export interface FilteredProp {
-  line: number;
+  fdLine: number;
+  siaLine: number;
   siaOdds: { over: number; under: number };
   fdOdds: { over: number; under: number };
 }
@@ -110,11 +111,18 @@ export interface FilteredOdds {
 // ===== Normalized (vig removed, true probabilities calculated) =====
 
 export interface NormalizedProp {
-  line: number;
+  fdLine: number;
+  siaLine: number;
   siaOdds: { over: number; under: number };
   fdOdds: { over: number; under: number };
   siaOddsNoVig: { over: number; under: number };
   fdOddsNoVig: { over: number; under: number };
+  edge?: {
+    side: "over" | "under";
+    fairProb: number;
+    siaNoVigProb: number;
+    edgePct: number;
+  };
 }
 
 export interface NormalizedOdds {
