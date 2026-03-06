@@ -106,9 +106,12 @@ export class Scheduler {
   }
 }
 
+let retryInterval: ReturnType<typeof setInterval> | null = null;
+
 /**
  * Initializes the daily scheduler. Runs immediately on startup to catch up
  * after any downtime. Runs daily at 6:00 A.M to fetch for new games.
+ * If the fetch fails, retries every 15 minutes until it succeeds.
  */
 export const initDailyScheduler = async (
   db: Database,
@@ -117,12 +120,48 @@ export const initDailyScheduler = async (
   scheduler: Scheduler,
   sport: string,
 ): Promise<void> => {
-  // Run as soon as server starts so that if server shutdown, we can just fetch asap
-  await fetchAndSchedule(db, siaService, fdService, scheduler, sport);
-  // Fetch once daily at 6AM — NBA schedules don't change intraday
+  const attemptFetch = async () => {
+    const success = await fetchAndSchedule(
+      db,
+      siaService,
+      fdService,
+      scheduler,
+      sport,
+    );
+    if (success && retryInterval) {
+      clearInterval(retryInterval);
+      retryInterval = null;
+      logger.info("Daily fetch succeeded, stopped retrying");
+    }
+  };
+
+  // Run immediately on startup, retry every 15 min if it fails
+  const success = await fetchAndSchedule(
+    db,
+    siaService,
+    fdService,
+    scheduler,
+    sport,
+  );
+  if (!success) {
+    retryInterval = setInterval(attemptFetch, 15 * 60 * 1000);
+  }
+
+  // Daily at 6 AM, start fresh attempt cycle
   cron.schedule(
     "0 6 * * *",
-    () => fetchAndSchedule(db, siaService, fdService, scheduler, sport),
+    async () => {
+      const success = await fetchAndSchedule(
+        db,
+        siaService,
+        fdService,
+        scheduler,
+        sport,
+      );
+      if (!success && !retryInterval) {
+        retryInterval = setInterval(attemptFetch, 15 * 60 * 1000);
+      }
+    },
     { timezone: "America/Vancouver" },
   );
 };
@@ -130,6 +169,7 @@ export const initDailyScheduler = async (
 /**
  * Fetches today's fixtures from SIA, saves them to the database,
  * and kicks off the scraping scheduler for each game.
+ * Returns true on success, false on failure.
  */
 const fetchAndSchedule = async (
   db: Database,
@@ -137,7 +177,7 @@ const fetchAndSchedule = async (
   fdService: FanduelOddsApiService,
   scheduler: Scheduler,
   sport: string,
-): Promise<void> => {
+): Promise<boolean> => {
   try {
     await markStartedFixtures(db, sport);
     // Initialize the browser only when needed
@@ -153,7 +193,7 @@ const fetchAndSchedule = async (
     // Just exit if there are no NBA games today
     if (fixtures.length === 0) {
       logger.info("No NBA games today, skipping");
-      return;
+      return true;
     }
 
     logger.info(
@@ -167,14 +207,16 @@ const fetchAndSchedule = async (
     }
 
     await initScrapingScheduler(db, siaService, fdService, scheduler, sport);
+    return true;
   } catch (error) {
     const errorMessage = getErrorMessage(error);
     logger.error(
       { error: errorMessage },
-      "Hourly fixture fetch failed, go to initDailyScheduler",
+      "Daily fixture fetch failed, retrying in 15 minutes",
     );
     // Make sure browser is closed even if something fails
     await siaService.close();
+    return false;
   }
 };
 
@@ -290,7 +332,7 @@ const startScraping = async (
   const fixtureId = fixtureRow.fixture_id;
   const gameTime = new Date(fixtureRow.start_date);
 
-  // Launch browser only when the first fixture needs scraping
+  // Launch browser only when a fixture needs scraping
   if (scheduler.getActiveFixtures().length === 0) {
     if (browserInitializing) {
       // Another fixture is already initializing — wait for it
