@@ -5,7 +5,7 @@ import { SiaApiService } from "./api/siaApi";
 import { FanduelOddsApiService } from "./api/oddsApi";
 import { Database } from "./db/database";
 import { initNbaSchema } from "./db/schemas";
-import { initDailyScheduler, Scheduler } from "./services/scheduler";
+import { initDailyScheduler, Scheduler } from "./services/scraperScheduler";
 import { SPORTS } from "./config/types";
 import { sseManager } from "./services/sseManager";
 
