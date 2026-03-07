@@ -12,9 +12,12 @@ function getCurrentSeason(): string {
 }
 
 export const PLAYER_AVERAGE_URL = (playerId: number): string =>
-  `https://stats.nba.com/stats/playerdashboardbygeneralsplits?PlayerID=${playerId}&Season=${getCurrentSeason}&MeasureType=Base&PerMode=PerGame&SeasonType=Regular+Season&PaceAdjust=N&PlusMinus=N&Rank=N&Month=0&OpponentTeamID=0&LastNGames=0&Period=0&DateFrom=&DateTo=&GameSegment=&LeagueID=&Location=&Outcome=&PORound=&SeasonSegment=&ShotClockRange=&VsConference=&VsDivision=`;
+  `https://stats.nba.com/stats/playerdashboardbygeneralsplits?PlayerID=${playerId}&Season=${getCurrentSeason()}&MeasureType=Base&PerMode=PerGame&SeasonType=Regular+Season&PaceAdjust=N&PlusMinus=N&Rank=N&Month=0&OpponentTeamID=0&LastNGames=0&Period=0&DateFrom=&DateTo=&GameSegment=&LeagueID=&Location=&Outcome=&PORound=&SeasonSegment=&ShotClockRange=&VsConference=&VsDivision=`;
 
 export const PLAYER_INFO: string = `https://stats.nba.com/stats/commonallplayers?LeagueID=00&Season=${getCurrentSeason()}&IsOnlyCurrentSeason=1`
+
+export const PLAYER_GAME_LOG_URL = (playerId: number): string =>
+  `https://stats.nba.com/stats/playergamelog?PlayerID=${playerId}&Season=${getCurrentSeason()}&SeasonType=Regular+Season&DateFrom=&DateTo=&LeagueID=`;
 
 export const NBA_STATS_HEADERS = {
   'Host': 'stats.nba.com',
@@ -24,4 +27,18 @@ export const NBA_STATS_HEADERS = {
   'Accept-Encoding': 'gzip, deflate, br',
   'Referer': 'https://stats.nba.com/',
   'Connection': 'keep-alive',
+};
+
+export const STAT_COLUMNS: Record<string, string> = {
+  points: "PTS",
+  rebounds: "REB",
+  assists: "AST",
+  threes: "FG3M",
+};
+
+export const COMBOS: Record<string, string[]> = {
+  points_rebounds_assists: ["PTS", "REB", "AST"],
+  points_assists: ["PTS", "AST"],
+  points_rebounds: ["PTS", "REB"],
+  rebounds_assists: ["REB", "AST"],
 };
