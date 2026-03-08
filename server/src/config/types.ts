@@ -122,6 +122,7 @@ export interface NormalizedProp {
     fairProb: number;
     siaNoVigProb: number;
     edgePct: number;
+    method: string;
   };
 }
 

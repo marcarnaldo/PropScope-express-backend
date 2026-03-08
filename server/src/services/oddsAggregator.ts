@@ -21,6 +21,8 @@ import {
   PropOdds,
   SiaFixture,
 } from "../config/types.ts";
+import { getPlayerStatProfiles, StatProfile } from "../api/nbaApi.ts";
+
 
 /**
  * Fetches odds from both SIA and FanDuel for a given fixture,
@@ -171,75 +173,92 @@ export const filterSameLines = (
  * calculate what SIA should be pricing at based on FD's sharp line.
  * The edge is the gap between the fair probability and what SIA charges.
  */
-export const normalizeOdds = (filteredLines: FilteredOdds): NormalizedOdds => {
-  const removedVig: NormalizedOdds = {
-    props: {},
-  };
+export const normalizeOdds = async (
+  filteredLines: FilteredOdds,
+): Promise<NormalizedOdds> => {
+  const removedVig: NormalizedOdds = { props: {} };
 
+  // Collect all unique player names that have different lines
+  const playersNeedingStats = new Set<string>();
+  for (const [playerName, playerProps] of Object.entries(filteredLines.props)) {
+    for (const [, propData] of Object.entries(playerProps)) {
+      if (propData.fdLine !== propData.siaLine) {
+        playersNeedingStats.add(playerName);
+      }
+    }
+  }
+
+  // Fetch stat profiles in parallel for all players that need them
+  const statsMap = new Map<string, Record<string, StatProfile> | null>();
+  const statFetches = [...playersNeedingStats].map(async (name) => {
+    try {
+      const profiles = await getPlayerStatProfiles(name);
+      statsMap.set(name, profiles);
+    } catch {
+      logger.warn({ player: name }, "Failed to fetch stat profile, will use fallback");
+      statsMap.set(name, null);
+    }
+  });
+  await Promise.all(statFetches);
+
+  // Now process all props
   for (const [playerName, playerProps] of Object.entries(filteredLines.props)) {
     for (const [propType, propData] of Object.entries(playerProps)) {
-      // Check if the player's name is in the props. If not, make an entry for it
       if (!removedVig.props[playerName]) removedVig.props[playerName] = {};
 
-      // Calculate sia's over and under odds' true probability
       const [siaOverNoVig, siaUnderNoVig] = removeVig(
         propData.siaOdds.over,
         propData.siaOdds.under,
       );
-      // Calculate fd's over and under odds' true probability
       const [fdOverNoVig, fdUnderNoVig] = removeVig(
         propData.fdOdds.over,
         propData.fdOdds.under,
       );
 
-      // Calculate edge when lines differ using Poisson
       let edge: NormalizedProp["edge"];
+
       if (propData.fdLine !== propData.siaLine) {
-        const lambda = solveLambda(propData.fdLine, fdOverNoVig);
-        const fairOverAtSiaLine =
-          1 - poissonCdf(Math.ceil(propData.siaLine) - 1, lambda);
-        const fairUnderAtSiaLine = 1 - fairOverAtSiaLine;
-        // Pick whichever side has the bigger edge
-        const overEdge = fairOverAtSiaLine - siaOverNoVig;
-        const underEdge = fairUnderAtSiaLine - siaUnderNoVig;
+        // Look up this player's stat profile for this specific prop type
+        const playerProfiles = statsMap.get(playerName) ?? null;
+        const stats = playerProfiles?.[propType] ?? null;
+
+        const { fairOver, fairUnder, method } = computeFairProbAtSiaLine(
+          propType,
+          propData.siaLine,
+          propData.fdLine,
+          fdOverNoVig,
+          stats,
+        );
+
+        const overEdge = fairOver - siaOverNoVig;
+        const underEdge = fairUnder - siaUnderNoVig;
 
         if (overEdge > underEdge) {
           edge = {
             side: "over",
-            fairProb: fairOverAtSiaLine,
+            fairProb: fairOver,
             siaNoVigProb: siaOverNoVig,
             edgePct: overEdge,
+            method,
           };
         } else {
           edge = {
             side: "under",
-            fairProb: fairUnderAtSiaLine,
+            fairProb: fairUnder,
             siaNoVigProb: siaUnderNoVig,
             edgePct: underEdge,
+            method,
           };
         }
       }
 
-      // Populate the player with the type of prop and all the required information
       removedVig.props[playerName][propType] = {
         fdLine: propData.fdLine,
         siaLine: propData.siaLine,
-        siaOdds: {
-          over: propData.siaOdds.over,
-          under: propData.siaOdds.under,
-        },
-        fdOdds: {
-          over: propData.fdOdds.over,
-          under: propData.fdOdds.under,
-        },
-        siaOddsNoVig: {
-          over: siaOverNoVig,
-          under: siaUnderNoVig,
-        },
-        fdOddsNoVig: {
-          over: fdOverNoVig,
-          under: fdUnderNoVig,
-        },
+        siaOdds: { over: propData.siaOdds.over, under: propData.siaOdds.under },
+        fdOdds: { over: propData.fdOdds.over, under: propData.fdOdds.under },
+        siaOddsNoVig: { over: siaOverNoVig, under: siaUnderNoVig },
+        fdOddsNoVig: { over: fdOverNoVig, under: fdUnderNoVig },
         edge,
       };
     }
@@ -279,77 +298,200 @@ const toImpliedProbability = (odds: number): number => {
   return 100 / (odds + 100);
 };
 
+
+const poissonCdf = (k: number, lambda: number): number => {
+  let sum = 0;
+  for (let i = 0; i <= Math.floor(k); i++) {
+    sum += (Math.pow(lambda, i) * Math.exp(-lambda)) / factorial(i);
+  }
+  return sum;
+};
+
+const negativeBinomialCdf = (k: number, r: number, p: number): number => {
+  let sum = 0;
+  for (let i = 0; i <= Math.floor(k); i++) {
+    // NB PMF: C(i + r - 1, i) * p^r * (1-p)^i
+    const coeff = binomialCoeff(i + r - 1, i);
+    sum += coeff * Math.pow(p, r) * Math.pow(1 - p, i);
+  }
+  return sum;
+};
+
+const normalCdf = (x: number, mean: number, stdDev: number): number => {
+  // Approximation using the error function
+  const z = (x - mean) / (stdDev * Math.SQRT2);
+  return 0.5 * (1 + erf(z));
+};
+
+const solveLambda = (line: number, overProb: number): number => {
+  let lo = 0,
+    hi = 100;
+
+  for (let i = 0; i < 100; i++) {
+    const mid = (lo + hi) / 2;
+
+    const prob = 1 - poissonCdf(Math.ceil(line) - 1, mid);
+
+    if (prob > overProb) hi = mid;
+    else lo = mid;
+  }
+  return (lo + hi) / 2;
+};
+
 const factorial = (n: number): number => {
   let result = 1;
-  for (let i = 2; i <= n; i++) {
-    result *= i;
+  for (let i = 2; i <= n; i++) result *= i;
+  return result;
+};
+
+const binomialCoeff = (n: number, k: number): number => {
+  if (k < 0 || k > Math.floor(n + 0.5)) return 0;
+  let result = 1;
+  for (let i = 0; i < Math.floor(k); i++) {
+    result *= (n - i) / (i + 1);
   }
   return result;
 };
 
-/**
- * Calculates the probability of a player hitting k or fewer of something
- * (points, rebounds, assists, etc.) using the Poisson distribution.
- *
- * For example, poissonCdf(7, 7.8) answers:
- * "If a player averages 7.8 points, what's the probability they score 7 or fewer?"
- *
- * We use this to find edges when SIA and FD have different lines:
- * - FD says over 7.5 points is 55% likely (after removing vig)
- * - We use that to figure out the player's expected scoring rate (lambda)
- * - Then we ask: "What should over 6.5 actually be priced at?"
- * - If SIA is pricing over 6.5 lower than it should be, that's our edge
- */
-const poissonCdf = (k: number, lambda: number): number => {
-  let sum = 0; // this will store the running total of probabilities
-
-  // Loop from 0 events up to k events
-  for (let i = 0; i <= Math.floor(k); i++) {
-    // Add the probability of getting exactly i events
-    // Poisson formula: (λ^i * e^-λ) / i!
-    sum += (Math.pow(lambda, i) * Math.exp(-lambda)) / factorial(i);
-  }
-
-  // After adding all probabilities from 0 to k,
-  // we return the final cumulative probability
-  return sum;
+const erf = (x: number): number => {
+  const sign = x >= 0 ? 1 : -1;
+  const a = Math.abs(x);
+  const t = 1 / (1 + 0.3275911 * a);
+  const poly =
+    t *
+    (0.254829592 +
+      t *
+        (-0.284496736 +
+          t * (1.421413741 + t * (-1.453152027 + t * 1.061405429))));
+  return sign * (1 - poly * Math.exp(-a * a));
 };
 
-/**
- * Finds the player's expected output (lambda) using FD's line and no-vig probability.
- *
- * FD is the sharp book, so their odds reflect the best estimate of reality.
- * If FD says over 7.5 points is 55% likely, we work backwards to find
- * "what average scoring rate would make over 7.5 exactly 55% likely?"
- *
- * Uses binary search — we keep guessing lambda values between 0 and 100,
- * checking if the resulting probability is too high or too low,
- * and narrowing the range until we converge on the right answer.
- * Same approach as the removeVig function.
- */
-const solveLambda = (line: number, overProb: number): number => {
-  // Start with a wide range where lambda could be
-  let lo = 0,
-    hi = 100;
-
-  // Repeat the search 100 times to narrow down the correct lambda
+/** Binary search for mean in Negative Binomial given FD's line and over prob.
+ *  Keeps the variance/mean ratio fixed from real player data. */
+const solveMeanNB = (line: number, overProb: number, varOverMean: number): number => {
+  let lo = 0.1, hi = 100;
   for (let i = 0; i < 100; i++) {
-    // Take the middle value between low and high
     const mid = (lo + hi) / 2;
-
-    // Calculate probability of going OVER the line using Poisson
-    // Example: line = 7.5 → we need probability of 8 or more
-    const prob = 1 - poissonCdf(Math.ceil(line) - 1, mid);
-
-    // If our probability is too big, lambda is too big
-    // so we move the upper bound down
+    const variance = mid * varOverMean;
+    const r = (mid * mid) / (variance - mid);
+    const p = mid / variance;
+    const prob = 1 - negativeBinomialCdf(Math.ceil(line) - 1, r, p);
     if (prob > overProb) hi = mid;
-    // If probability is too small, lambda is too small
-    // so we move the lower bound up
     else lo = mid;
   }
-
-  // After narrowing the range many times,
-  // return the middle as our best estimate for lambda
   return (lo + hi) / 2;
+};
+
+/** Inverse normal CDF approximation (rational approximation) */
+const inverseNormalCdf = (p: number): number => {
+  if (p <= 0) return -Infinity;
+  if (p >= 1) return Infinity;
+  if (p === 0.5) return 0;
+
+  // Rational approximation (Peter Acklam's method)
+  const a = [
+    -3.969683028665376e1, 2.209460984245205e2, -2.759285104469687e2,
+    1.383577518672690e2, -3.066479806614716e1, 2.506628277459239e0,
+  ];
+  const b = [
+    -5.447609879822406e1, 1.615858368580409e2, -1.556989798598866e2,
+    6.680131188771972e1, -1.328068155288572e1,
+  ];
+  const c = [
+    -7.784894002430293e-3, -3.223964580411365e-1, -2.400758277161838e0,
+    -2.549732539343734e0, 4.374664141464968e0, 2.938163982698783e0,
+  ];
+  const d = [
+    7.784695709041462e-3, 3.224671290700398e-1, 2.445134137142996e0,
+    3.754408661907416e0,
+  ];
+
+  const pLow = 0.02425;
+  const pHigh = 1 - pLow;
+
+  let q: number, r: number;
+
+  if (p < pLow) {
+    q = Math.sqrt(-2 * Math.log(p));
+    return (
+      (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+      ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1)
+    );
+  } else if (p <= pHigh) {
+    q = p - 0.5;
+    r = q * q;
+    return (
+      ((((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q) /
+      (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1)
+    );
+  } else {
+    q = Math.sqrt(-2 * Math.log(1 - p));
+    return -(
+      (((((c[0] * q + c[1]) * q + c[2]) * q + c[3]) * q + c[4]) * q + c[5]) /
+      ((((d[0] * q + d[1]) * q + d[2]) * q + d[3]) * q + 1)
+    );
+  }
+};
+
+const COMBO_PROPS = new Set([
+  "points_rebounds_assists",
+  "points_assists",
+  "points_rebounds",
+  "rebounds_assists",
+]);
+
+/**
+ * Computes P(over siaLine) using the best distribution for this prop type.
+ * Uses real player stats when available, falls back to Poisson-from-FD.
+ */
+const computeFairProbAtSiaLine = (
+  propType: string,
+  siaLine: number,
+  fdLine: number,
+  fdOverNoVig: number,
+  stats: StatProfile | null,
+): { fairOver: number; fairUnder: number; method: string } => {
+  // ── Combo markets → Normal ──
+  if (COMBO_PROPS.has(propType)) {
+    if (stats) {
+      // We have real mean and stdDev from game logs
+      // Use FD's no-vig over prob to refine the mean while keeping the real stdDev
+      // P(X > fdLine) = fdOverNoVig → mean = fdLine + 0.5 + stdDev * Φ⁻¹(1 - fdOverNoVig)
+      const zFd = inverseNormalCdf(1 - fdOverNoVig);
+      const adjustedMean = (fdLine + 0.5) + stats.stdDev * zFd;
+
+      // Now price at SIA's line using the real stdDev and FD-calibrated mean
+      const fairOver = 1 - normalCdf(siaLine + 0.5, adjustedMean, stats.stdDev);
+      return { fairOver, fairUnder: 1 - fairOver, method: "normal" };
+    }
+    // No stats → fall through to Poisson fallback
+  }
+
+  // ── Overdispersed single stat (points) or stats say NB → Negative Binomial ──
+  if (stats?.suggestedDistribution === "negative_binomial" && stats.nbR && stats.nbP) {
+    // Calibrate: adjust r to match FD's over prob at FD's line
+    // Keep the overdispersion ratio (variance/mean) from real data, solve for mean from FD
+    const varOverMean = stats.variance / stats.mean; // real overdispersion ratio
+    const calibratedMean = solveMeanNB(fdLine, fdOverNoVig, varOverMean);
+    const calibratedVariance = calibratedMean * varOverMean;
+    const calibratedR = (calibratedMean * calibratedMean) / (calibratedVariance - calibratedMean);
+    const calibratedP = calibratedMean / calibratedVariance;
+
+    const fairOver = 1 - negativeBinomialCdf(Math.ceil(siaLine) - 1, calibratedR, calibratedP);
+    return { fairOver, fairUnder: 1 - fairOver, method: "negative_binomial" };
+  }
+
+  // ── Poisson (assists, rebounds, threes — or fallback) ──
+  if (stats) {
+    // Use FD to calibrate lambda (more accurate than season average alone)
+    // but we could also sanity-check: if solved lambda is wildly off from stats.mean, flag it
+    const lambda = solveLambda(fdLine, fdOverNoVig);
+    const fairOver = 1 - poissonCdf(Math.ceil(siaLine) - 1, lambda);
+    return { fairOver, fairUnder: 1 - fairOver, method: "poisson" };
+  }
+
+  // ── No stats at all → original Poisson-from-FD fallback ──
+  const lambda = solveLambda(fdLine, fdOverNoVig);
+  const fairOver = 1 - poissonCdf(Math.ceil(siaLine) - 1, lambda);
+  return { fairOver, fairUnder: 1 - fairOver, method: "poisson_fallback" };
 };

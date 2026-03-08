@@ -39,7 +39,7 @@ export class Scheduler {
   private activeFixtures: Map<number, FixtureRow>;
   // Single shared interval that scrapes all active fixtures each tick
   private scrapeInterval: ReturnType<typeof setInterval> | null;
-
+  private pendingFirstScrape: ReturnType<typeof setTimeout> | null = null;
   constructor() {
     this.activeJobs = [];
     this.activeFixtures = new Map();
@@ -80,13 +80,21 @@ export class Scheduler {
 
   /**
    * Starts the shared scrape interval if not already running.
-   * Runs the callback immediately on start, then every `interval` ms.
+   * Debounces the first scrape by 3 seconds so that fixtures
+   * scheduled at the same time all get registered before the
+   * first cycle runs. After that, scrapes every `interval` ms.
    * Only one interval exists at a time — all fixtures share it.
    */
   startScrapeInterval(interval: number, callback: () => void): void {
     if (this.scrapeInterval) return;
-    callback();
     this.scrapeInterval = setInterval(callback, interval);
+
+    // Debounce the first scrape so all fixtures register first
+    if (this.pendingFirstScrape) clearTimeout(this.pendingFirstScrape);
+    this.pendingFirstScrape = setTimeout(() => {
+      this.pendingFirstScrape = null;
+      callback();
+    }, 3000);
   }
 
   /** Stops the shared scrape interval. */
