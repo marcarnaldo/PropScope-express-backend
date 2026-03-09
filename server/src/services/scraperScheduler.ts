@@ -12,7 +12,7 @@
 
 import schedule from "node-schedule";
 import cron from "node-cron";
-import { logger } from "../utils/errorHandling.ts";
+import { logger, MAX_RETRIES } from "../utils/errorHandling.ts";
 import { SiaApiService } from "../api/siaApi.ts";
 import { getErrorMessage } from "../utils/errorHandling.ts";
 import { SIA_URLS } from "../config/siaConstants.ts";
@@ -440,10 +440,11 @@ const updateOddsToDb = async (
  * Scrapes all active fixtures concurrently, then sends one batched SSE event.
  *
  * Flow per cycle:
- * 1. Check browser health — reinitialize if the browser is unresponsive
- * 2. Scrape all fixtures in parallel via Promise.allSettled (each gets its own browser tab from the pool)
- * 3. Collect successful fixture IDs
- * 4. Send a single SSE event with all updated fixture IDs to notify connected clients
+ * 1. Validate SIA session with a real request — reinitialize if stale
+ * 2. Scrape all fixtures in parallel via Promise.allSettled
+ * 3. If ALL fixtures failed, reinit browser (up to 3 attempts) and retry once
+ * 4. Collect successful fixture IDs
+ * 5. Send a single SSE event with all updated fixture IDs to notify connected clients
  */
 const scrapeAllFixtures = async (
   db: Database,
@@ -452,29 +453,21 @@ const scrapeAllFixtures = async (
   scheduler: Scheduler,
 ): Promise<void> => {
   const activeFixtures = scheduler.getActiveFixtures();
-  if (activeFixtures.length === 0) return;
+  if (activeFixtures.length === 0) {
+    logger.info("No active fixtures to scrape, skipping cycle");
+    return;
+  }
 
+  // Validate SIA session with a real request
   const healthy = await siaService.isBrowserHealthy();
-
   if (!healthy) {
-    logger.warn(
-      "Browser unhealthy, reinitializing before scrape cycle — check reinitCount in browser logs",
-    );
-    try {
-      await siaService.close();
-      await siaService.initialize();
-      logger.info("Browser reinitialization successful");
-    } catch (error) {
-      logger.error(
-        { error: getErrorMessage(error) },
-        "Browser reinitialization failed, skipping scrape cycle",
-      );
-      return;
-    }
+    logger.warn("SIA session invalid, reinitializing before scrape cycle");
+    const reinitSuccess = await reinitBrowser(siaService);
+    if (!reinitSuccess) return;
   }
 
   // Scrape all fixtures concurrently — each acquires its own tab from the page pool
-  const results = await Promise.allSettled(
+  let results = await Promise.allSettled(
     activeFixtures.map((fixtureRow) =>
       updateOddsToDb(
         db,
@@ -494,6 +487,43 @@ const scrapeAllFixtures = async (
     }
   });
 
+  if (updatedFixtureIds.length === 0 && activeFixtures.length > 0) {
+    logger.warn(
+      { fixtureCount: activeFixtures.length },
+      "All fixtures failed — reinitializing browser and retrying once",
+    );
+
+    const reinitSuccess = await reinitBrowser(siaService);
+
+    if (!reinitSuccess) {
+      logger.error("Skipping scrape cycle — browser reinitialization failed");
+      return;
+    }
+
+    results = await Promise.allSettled(
+      activeFixtures.map((fixtureRow) =>
+        updateOddsToDb(
+          db,
+          fixtureRow.fixture_id,
+          fixtureRow.raw_data as SiaFixture,
+          siaService,
+          fdService,
+        ),
+      ),
+    );
+
+    results.forEach((result, index) => {
+      if (result.status === "fulfilled" && result.value) {
+        updatedFixtureIds.push(activeFixtures[index].fixture_id);
+      }
+    });
+
+    logger.info(
+      { succeeded: updatedFixtureIds.length, total: activeFixtures.length },
+      "Retry after reinit complete",
+    );
+  }
+
   // One SSE event with all updated fixtures
   if (updatedFixtureIds.length > 0) {
     sseManager.notifyBatchUpdate(updatedFixtureIds);
@@ -506,4 +536,28 @@ const scrapeAllFixtures = async (
     },
     "Scrape cycle complete",
   );
+};
+
+/**
+ * Closes and reinitializes the browser with retry.
+ * Each attempt launches a fresh proxy session (new IP) to avoid blocked IPs.
+ * Returns true on success, false if all attempts fail.
+ */
+const reinitBrowser = async (siaService: SiaApiService): Promise<boolean> => {
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      await siaService.close();
+      await siaService.initialize();
+      logger.info({ attempt }, "Browser reinitialization successful");
+      return true;
+    } catch (error) {
+      logger.warn(
+        { attempt, maxRetries: MAX_RETRIES, error: getErrorMessage(error) },
+        "Browser reinitialization attempt failed",
+      );
+      if (attempt === MAX_RETRIES) break;
+    }
+  }
+  logger.error("All browser reinitialization attempts failed, skipping scrape cycle");
+  return false;
 };

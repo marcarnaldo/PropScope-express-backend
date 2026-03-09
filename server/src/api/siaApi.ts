@@ -24,6 +24,7 @@ import {
 } from "../config/types.ts";
 
 const PAGE_TIMEOUT = 15000; // 15 seconds
+const SIA_FETCH_RETRIES = 1;
 
 /** Races a promise against a timeout. Rejects if the promise takes too long. */
 const withTimeout = <T>(promise: Promise<T>, ms: number): Promise<T> => {
@@ -102,7 +103,7 @@ export class SiaApiService {
   ): Promise<SiaFixture> {
     let lastError;
 
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    for (let attempt = 1; attempt <= SIA_FETCH_RETRIES; attempt++) {
       // Wait until there is an available page to use
       const page = await this.browserManager.acquirePage();
       try {
@@ -121,14 +122,14 @@ export class SiaApiService {
       } catch (error) {
         lastError = error;
         const errorMessage = getErrorMessage(error);
-        if (attempt === MAX_RETRIES) break;
+        if (attempt === SIA_FETCH_RETRIES) break;
 
         const waitTime = Math.pow(2, attempt) * 1000;
 
         logger.warn(
           {
             attempt,
-            maxRetries: MAX_RETRIES,
+            maxRetries: SIA_FETCH_RETRIES,
             error: errorMessage,
             waitMs: waitTime,
           },
@@ -143,7 +144,7 @@ export class SiaApiService {
     }
 
     throw new Error(
-      `Failed to fetch fixtures after ${MAX_RETRIES} attempts: ${lastError}`,
+      `Failed to fetch fixtures after ${SIA_FETCH_RETRIES} attempts: ${lastError}`,
     );
   }
 

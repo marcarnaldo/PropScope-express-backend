@@ -222,15 +222,44 @@ export class BrowserManager {
     this.activePages.clear();
   }
 
-  /** Checks if the browser and page are still responsive by running a small script. */
-  public async isHealthy(): Promise<boolean> {
-    if (!this.browser) return false;
-    try {
-      const testPage = await this.browser.newPage();
-      await testPage.close();
-      return true;
-    } catch (error) {
+  /**
+   * Validates that the browser is alive and the SIA session is still active.
+   * Hits SIA's favicon via the browser to verify the proxy and cookies work.
+   * Used before each scrape cycle to catch stale sessions early.
+   */ public async isHealthy(): Promise<boolean> {
+    if (!this.browser) {
+      logger.warn("Health check failed: browser is null");
       return false;
+    }
+
+    let page;
+    try {
+      page = await this.browser.newPage();
+      const status = await page.evaluate(async () => {
+        const res = await fetch(
+          "https://www.sportsinteraction.com/favicon.ico",
+          { method: "HEAD" }, // Get the status code to verify if the session works
+        );
+        return res.status;
+      });
+
+      if (status === 200) {
+        logger.info("Health check passed: SIA session is valid");
+        return true;
+      }
+      logger.warn(
+        { status },
+        "Health check failed: SIA returned non-200 status",
+      );
+      return false;
+    } catch (error) {
+      logger.warn(
+        { error: getErrorMessage(error) },
+        "Health check failed: could not reach SIA",
+      );
+      return false;
+    } finally {
+      if (page) await page.close().catch(() => {});
     }
   }
 }
