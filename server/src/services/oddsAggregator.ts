@@ -39,12 +39,17 @@ export const aggregateSiaAndFdOdds = async (
   const homeTeam = fixture.participants[1].name.value;
 
   try {
-    const [siaOdds, fdOdds] = await Promise.all([
-      siaService.getSiaOdds(fixtureId, homeTeam, awayTeam, fixture),
-      fdService.getFanduelOdds(homeTeam, awayTeam),
-    ]);
-
-    if (!fdOdds || !siaOdds) return null;
+    const siaOdds = await siaService.getSiaOdds(fixtureId, homeTeam, awayTeam, fixture);
+    if (!siaOdds) {
+      logger.warn({ fixtureId, homeTeam, awayTeam }, "SIA odds unavailable, skipping FD fetch");
+      return null;
+    }
+    
+    const fdOdds = await fdService.getFanduelOdds(homeTeam, awayTeam);
+    if (!fdOdds) {
+      logger.warn({ fixtureId, homeTeam, awayTeam }, "FD odds unavailable, skipping aggregation");
+      return null;
+    }
 
     const aggregatedOdds: AggregatedOdds = {
       ht: homeTeam,
