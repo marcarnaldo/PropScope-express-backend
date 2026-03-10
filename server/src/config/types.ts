@@ -118,10 +118,8 @@ export interface NormalizedProp {
   siaOddsNoVig: { over: number; under: number };
   fdOddsNoVig: { over: number; under: number };
   edge?: {
-    side: "over" | "under";
-    fairProb: number;
-    siaNoVigProb: number;
-    edgePct: number;
+    fairProbOver: number;
+    fairProbUnder: number;
     method: string;
   };
 }

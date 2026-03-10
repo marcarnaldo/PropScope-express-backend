@@ -23,7 +23,6 @@ import {
 } from "../config/types.ts";
 import { getPlayerStatProfiles, StatProfile } from "../api/nbaApi.ts";
 
-
 /**
  * Fetches odds from both SIA and FanDuel for a given fixture,
  * then merges them into a single object keyed by player and prop type.
@@ -39,15 +38,26 @@ export const aggregateSiaAndFdOdds = async (
   const homeTeam = fixture.participants[1].name.value;
 
   try {
-    const siaOdds = await siaService.getSiaOdds(fixtureId, homeTeam, awayTeam, fixture);
+    const siaOdds = await siaService.getSiaOdds(
+      fixtureId,
+      homeTeam,
+      awayTeam,
+      fixture,
+    );
     if (!siaOdds) {
-      logger.warn({ fixtureId, homeTeam, awayTeam }, "SIA odds unavailable, skipping FD fetch");
+      logger.warn(
+        { fixtureId, homeTeam, awayTeam },
+        "SIA odds unavailable, skipping FD fetch",
+      );
       return null;
     }
-    
+
     const fdOdds = await fdService.getFanduelOdds(homeTeam, awayTeam);
     if (!fdOdds) {
-      logger.warn({ fixtureId, homeTeam, awayTeam }, "FD odds unavailable, skipping aggregation");
+      logger.warn(
+        { fixtureId, homeTeam, awayTeam },
+        "FD odds unavailable, skipping aggregation",
+      );
       return null;
     }
 
@@ -200,7 +210,10 @@ export const normalizeOdds = async (
       const profiles = await getPlayerStatProfiles(name);
       statsMap.set(name, profiles);
     } catch {
-      logger.warn({ player: name }, "Failed to fetch stat profile, will use fallback");
+      logger.warn(
+        { player: name },
+        "Failed to fetch stat profile, will use fallback",
+      );
       statsMap.set(name, null);
     }
   });
@@ -235,26 +248,11 @@ export const normalizeOdds = async (
           stats,
         );
 
-        const overEdge = fairOver - siaOverNoVig;
-        const underEdge = fairUnder - siaUnderNoVig;
-
-        if (overEdge > underEdge) {
-          edge = {
-            side: "over",
-            fairProb: fairOver,
-            siaNoVigProb: siaOverNoVig,
-            edgePct: overEdge,
-            method,
-          };
-        } else {
-          edge = {
-            side: "under",
-            fairProb: fairUnder,
-            siaNoVigProb: siaUnderNoVig,
-            edgePct: underEdge,
-            method,
-          };
-        }
+        edge = {
+          fairProbOver: fairOver,
+          fairProbUnder: fairUnder,
+          method: method,
+        };
       }
 
       removedVig.props[playerName][propType] = {
@@ -302,7 +300,6 @@ const toImpliedProbability = (odds: number): number => {
   if (odds < 0) return Math.abs(odds) / (Math.abs(odds) + 100);
   return 100 / (odds + 100);
 };
-
 
 const poissonCdf = (k: number, lambda: number): number => {
   let sum = 0;
@@ -373,8 +370,13 @@ const erf = (x: number): number => {
 
 /** Binary search for mean in Negative Binomial given FD's line and over prob.
  *  Keeps the variance/mean ratio fixed from real player data. */
-const solveMeanNB = (line: number, overProb: number, varOverMean: number): number => {
-  let lo = 0.1, hi = 100;
+const solveMeanNB = (
+  line: number,
+  overProb: number,
+  varOverMean: number,
+): number => {
+  let lo = 0.1,
+    hi = 100;
   for (let i = 0; i < 100; i++) {
     const mid = (lo + hi) / 2;
     const variance = mid * varOverMean;
@@ -396,19 +398,19 @@ const inverseNormalCdf = (p: number): number => {
   // Rational approximation (Peter Acklam's method)
   const a = [
     -3.969683028665376e1, 2.209460984245205e2, -2.759285104469687e2,
-    1.383577518672690e2, -3.066479806614716e1, 2.506628277459239e0,
+    1.38357751867269e2, -3.066479806614716e1, 2.506628277459239,
   ];
   const b = [
     -5.447609879822406e1, 1.615858368580409e2, -1.556989798598866e2,
     6.680131188771972e1, -1.328068155288572e1,
   ];
   const c = [
-    -7.784894002430293e-3, -3.223964580411365e-1, -2.400758277161838e0,
-    -2.549732539343734e0, 4.374664141464968e0, 2.938163982698783e0,
+    -7.784894002430293e-3, -3.223964580411365e-1, -2.400758277161838,
+    -2.549732539343734, 4.374664141464968, 2.938163982698783,
   ];
   const d = [
-    7.784695709041462e-3, 3.224671290700398e-1, 2.445134137142996e0,
-    3.754408661907416e0,
+    7.784695709041462e-3, 3.224671290700398e-1, 2.445134137142996,
+    3.754408661907416,
   ];
 
   const pLow = 0.02425;
@@ -426,7 +428,8 @@ const inverseNormalCdf = (p: number): number => {
     q = p - 0.5;
     r = q * q;
     return (
-      ((((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q) /
+      ((((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) *
+        q) /
       (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1)
     );
   } else {
@@ -463,7 +466,7 @@ const computeFairProbAtSiaLine = (
       // Use FD's no-vig over prob to refine the mean while keeping the real stdDev
       // P(X > fdLine) = fdOverNoVig → mean = fdLine + 0.5 + stdDev * Φ⁻¹(1 - fdOverNoVig)
       const zFd = inverseNormalCdf(1 - fdOverNoVig);
-      const adjustedMean = (fdLine + 0.5) + stats.stdDev * zFd;
+      const adjustedMean = fdLine + 0.5 + stats.stdDev * zFd;
 
       // Now price at SIA's line using the real stdDev and FD-calibrated mean
       const fairOver = 1 - normalCdf(siaLine + 0.5, adjustedMean, stats.stdDev);
@@ -473,16 +476,22 @@ const computeFairProbAtSiaLine = (
   }
 
   // ── Overdispersed single stat (points) or stats say NB → Negative Binomial ──
-  if (stats?.suggestedDistribution === "negative_binomial" && stats.nbR && stats.nbP) {
+  if (
+    stats?.suggestedDistribution === "negative_binomial" &&
+    stats.nbR &&
+    stats.nbP
+  ) {
     // Calibrate: adjust r to match FD's over prob at FD's line
     // Keep the overdispersion ratio (variance/mean) from real data, solve for mean from FD
     const varOverMean = stats.variance / stats.mean; // real overdispersion ratio
     const calibratedMean = solveMeanNB(fdLine, fdOverNoVig, varOverMean);
     const calibratedVariance = calibratedMean * varOverMean;
-    const calibratedR = (calibratedMean * calibratedMean) / (calibratedVariance - calibratedMean);
+    const calibratedR =
+      (calibratedMean * calibratedMean) / (calibratedVariance - calibratedMean);
     const calibratedP = calibratedMean / calibratedVariance;
 
-    const fairOver = 1 - negativeBinomialCdf(Math.ceil(siaLine) - 1, calibratedR, calibratedP);
+    const fairOver =
+      1 - negativeBinomialCdf(Math.ceil(siaLine) - 1, calibratedR, calibratedP);
     return { fairOver, fairUnder: 1 - fairOver, method: "negative_binomial" };
   }
 
