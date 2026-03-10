@@ -118,7 +118,7 @@ let retryInterval: ReturnType<typeof setInterval> | null = null;
 
 /**
  * Initializes the daily scheduler. Runs immediately on startup to catch up
- * after any downtime. Runs daily at 6:00 A.M to fetch for new games.
+ * after any downtime. Runs daily at 8:00 A.M to fetch for new games.
  * If the fetch fails, retries every 15 minutes until it succeeds.
  */
 export const initDailyScheduler = async (
@@ -155,9 +155,9 @@ export const initDailyScheduler = async (
     retryInterval = setInterval(attemptFetch, 15 * 60 * 1000);
   }
 
-  // Daily at 6 AM, start fresh attempt cycle
+  // Daily at 8 AM, start fresh attempt cycle
   cron.schedule(
-    "0 6 * * *",
+    "0 8 * * *",
     async () => {
       const success = await fetchAndSchedule(
         db,
