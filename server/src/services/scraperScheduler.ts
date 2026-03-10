@@ -421,7 +421,7 @@ const updateOddsToDb = async (
     }
 
     const filteredOdds = filterSameLines(aggregatedOdds);
-    const normalizedOdds = normalizeOdds(filteredOdds);
+    const normalizedOdds = await normalizeOdds(filteredOdds);
     await insertOddsSnapshot(db, fixtureId, normalizedOdds);
 
     logger.info({ fixtureId }, "Updated odds for fixture");
