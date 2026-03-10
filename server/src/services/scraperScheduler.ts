@@ -458,14 +458,6 @@ const scrapeAllFixtures = async (
     return;
   }
 
-  // Validate SIA session with a real request
-  const healthy = await siaService.isBrowserHealthy();
-  if (!healthy) {
-    logger.warn("SIA session invalid, reinitializing before scrape cycle");
-    const reinitSuccess = await reinitBrowser(siaService);
-    if (!reinitSuccess) return;
-  }
-
   // Scrape all fixtures concurrently — each acquires its own tab from the page pool
   let results = await Promise.allSettled(
     activeFixtures.map((fixtureRow) =>
