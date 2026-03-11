@@ -180,7 +180,7 @@ export const getLatestGameLogDate = async (
   playerId: number,
 ): Promise<Date | null> => {
   const result = await db.query(
-    /* SQL */ `SELECT game_date FROM player_game_logs WHERE player_id = $1 ORDER BY game_date DESC LIMIT 1`,
+    /* SQL */ `SELECT game_date FROM nba_player_game_logs WHERE player_id = $1 ORDER BY game_date DESC LIMIT 1`,
     [playerId],
   );
   return result.rows.length > 0 ? new Date(result.rows[0].game_date) : null;
