@@ -151,3 +151,64 @@ export const markStartedFixtures = async (db: Database, sport: string) => {
     [sport],
   );
 };
+
+export const getPlayerIdFromDb = async (
+  db: Database,
+  playerName: string,
+): Promise<number | null> => {
+  const result = await db.query(
+    /* SQL */ `SELECT player_id FROM nba_players WHERE player_name = $1`,
+    [playerName],
+  );
+  return result.rows.length > 0 ? result.rows[0].player_id : null;
+};
+
+export const bulkInsertPlayers = async (
+  db: Database,
+  players: { id: number; name: string }[],
+): Promise<void> => {
+  for (const player of players) {
+    await db.query(
+      /* SQL */ `INSERT INTO nba_players (player_id, player_name) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+      [player.id, player.name],
+    );
+  }
+};
+
+export const getLatestGameLogDate = async (
+  db: Database,
+  playerId: number,
+): Promise<Date | null> => {
+  const result = await db.query(
+    /* SQL */ `SELECT game_date FROM player_game_logs WHERE player_id = $1 ORDER BY game_date DESC LIMIT 1`,
+    [playerId],
+  );
+  return result.rows.length > 0 ? new Date(result.rows[0].game_date) : null;
+};
+
+export const insertGameLogs = async (
+  db: Database,
+  playerId: number,
+  logs: { gameDate: string; pts: number; reb: number; ast: number; fg3m: number }[],
+): Promise<void> => {
+  for (const log of logs) {
+    await db.query(
+      /* SQL */ `INSERT INTO player_game_logs (player_id, game_date, pts, reb, ast, fg3m)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT DO NOTHING`,
+      [playerId, log.gameDate, log.pts, log.reb, log.ast, log.fg3m],
+    );
+  }
+};
+
+export const getPlayerGameLogs = async (
+  db: Database,
+  playerId: number,
+): Promise<{ pts: number; reb: number; ast: number; fg3m: number }[]> => {
+  const result = await db.query(
+    /* SQL */ `SELECT pts, reb, ast, fg3m FROM nba_player_game_logs WHERE player_id = $1`,
+    [playerId],
+  );
+  return result.rows;
+};
+

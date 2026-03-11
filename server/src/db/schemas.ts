@@ -48,5 +48,29 @@ export const initNbaSchema = async (db: Database): Promise<void> => {
     ON odds_snapshots(fixture_id, snapshot_time)
   `);
 
+  await db.query(/* SQL */ `
+    CREATE TABLE IF NOT EXISTS nba_players (
+      player_id INTEGER PRIMARY KEY,
+      player_name VARCHAR(100) NOT NULL
+    )
+  `);
+
+  await db.query(/* SQL */ `
+    CREATE TABLE IF NOT EXISTS nba_player_game_logs (
+      player_id INTEGER NOT NULL REFERENCES nba_players(player_id),
+      game_date DATE NOT NULL,
+      pts INTEGER,
+      reb INTEGER,
+      ast INTEGER,
+      fg3m INTEGER,
+      PRIMARY KEY (player_id, game_date)
+    )
+  `);
+
+  await db.query(/* SQL */ `
+    CREATE INDEX IF NOT EXISTS idx_player_name 
+    ON nba_players(player_name)
+  `);
+
   logger.info("Database schema initialized");
 };

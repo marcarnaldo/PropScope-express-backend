@@ -22,6 +22,7 @@ import {
   SiaFixture,
 } from "../config/types.ts";
 import { getPlayerStatProfiles, StatProfile } from "../api/nbaApi.ts";
+import { Database } from "../db/database.ts";
 
 /**
  * Fetches odds from both SIA and FanDuel for a given fixture,
@@ -190,6 +191,7 @@ export const filterSameLines = (
  */
 export const normalizeOdds = async (
   filteredLines: FilteredOdds,
+  db: Database,
 ): Promise<NormalizedOdds> => {
   const removedVig: NormalizedOdds = { props: {} };
 
@@ -207,7 +209,7 @@ export const normalizeOdds = async (
   const statsMap = new Map<string, Record<string, StatProfile> | null>();
   const statFetches = [...playersNeedingStats].map(async (name) => {
     try {
-      const profiles = await getPlayerStatProfiles(name);
+      const profiles = await getPlayerStatProfiles(db, name);
       statsMap.set(name, profiles);
     } catch {
       logger.warn(

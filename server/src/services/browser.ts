@@ -12,7 +12,7 @@ import { getErrorMessage, MAX_RETRIES } from "../utils/errorHandling";
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 import { logger } from "../utils/errorHandling";
 import proxyChain from "proxy-chain";
-import crypto from "crypto";
+import { buildProxyUrl } from "../utils/proxyFetch";
 
 puppeteer.use(StealthPlugin());
 
@@ -29,23 +29,6 @@ const BLOCKED_RESOURCE_TYPES = new Set([
   "script",
   "other",
 ]);
-
-const generateSessionId = (): string => crypto.randomBytes(4).toString("hex");
-
-/**
- * Builds the IPRoyal proxy password with a fresh session ID.
- * Takes the base password (everything before _session-) and appends a new session.
- *
- * Example:
- *   base: S8AzxIWTu6FxZirE_country-ca_city-vancouver
- *   result: S8AzxIWTu6FxZirE_country-ca_city-vancouver_session-a1b2c3d4_lifetime-24h
- */
-const buildProxyPassword = (): string => {
-  const basePassword = process.env.PROXY_PASSWORD_BASE;
-  const lifetime = process.env.PROXY_LIFETIME || "24h";
-  const sessionId = generateSessionId();
-  return `${basePassword}_session-${sessionId}_lifetime-${lifetime}`;
-};
 
 export class BrowserManager {
   private browser: Browser | null = null;
@@ -70,25 +53,10 @@ export class BrowserManager {
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       try {
-        // Generate a fresh session ID for each attempt so we get a new IP
-        const proxyPassword = buildProxyPassword();
-        this.currentSessionId =
-          proxyPassword.match(/_session-([^_]+)/)?.[1] || null;
-
-        logger.info(
-          {
-            attempt,
-            maxRetries: MAX_RETRIES,
-            sessionId: this.currentSessionId,
-          },
-          "Attempting to launch browser with fresh proxy session",
-        );
-
-        // Build the full proxy URL with the fresh session
-        const oldProxyUrl = `http://${process.env.PROXY_USERNAME}:${proxyPassword}@${process.env.PROXY_HOST}:${process.env.PROXY_PORT}`;
-        // Spins up a local proxy on a random port that forwards to IPRoyal
-        const newProxyUrl = await proxyChain.anonymizeProxy(oldProxyUrl);
-        // Launch with the local proxy
+        const proxyUrl = buildProxyUrl();
+        this.currentSessionId = proxyUrl.match(/_session-([^_]+)/)?.[1] || null;
+        const newProxyUrl = await proxyChain.anonymizeProxy(proxyUrl);
+        // Launch with th new proxy url
         this.browser = await puppeteer.launch({
           headless: true,
           args: [

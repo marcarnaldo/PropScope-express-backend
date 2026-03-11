@@ -421,7 +421,7 @@ const updateOddsToDb = async (
     }
 
     const filteredOdds = filterSameLines(aggregatedOdds);
-    const normalizedOdds = await normalizeOdds(filteredOdds);
+    const normalizedOdds = await normalizeOdds(filteredOdds, db);
     await insertOddsSnapshot(db, fixtureId, normalizedOdds);
 
     logger.info({ fixtureId }, "Updated odds for fixture");
@@ -550,6 +550,8 @@ const reinitBrowser = async (siaService: SiaApiService): Promise<boolean> => {
       if (attempt === MAX_RETRIES) break;
     }
   }
-  logger.error("All browser reinitialization attempts failed, skipping scrape cycle");
+  logger.error(
+    "All browser reinitialization attempts failed, skipping scrape cycle",
+  );
   return false;
 };
