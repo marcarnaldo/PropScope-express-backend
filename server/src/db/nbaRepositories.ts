@@ -193,7 +193,7 @@ export const insertGameLogs = async (
 ): Promise<void> => {
   for (const log of logs) {
     await db.query(
-      /* SQL */ `INSERT INTO player_game_logs (player_id, game_date, pts, reb, ast, fg3m)
+      /* SQL */ `INSERT INTO nba_player_game_logs (player_id, game_date, pts, reb, ast, fg3m)
        VALUES ($1, $2, $3, $4, $5, $6)
        ON CONFLICT DO NOTHING`,
       [playerId, log.gameDate, log.pts, log.reb, log.ast, log.fg3m],
