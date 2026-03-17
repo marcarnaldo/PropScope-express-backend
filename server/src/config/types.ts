@@ -15,10 +15,11 @@ export const SPORTS = {
 // ===== SIA API Shapes (external) =====
 
 export interface SiaFixtureParticipant {
+  id?: number;
   participantId: number;
   name: {
     value: string;
-    short: string;
+    short?: string;
   };
 }
 

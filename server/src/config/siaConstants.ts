@@ -36,7 +36,7 @@ export const SIA_URLS = {
     fixtures:
       "https://www.sportsinteraction.com/cds-api/bettingoffer/fixtures?x-bwin-accessid=OGQ2ZTg0MGYtYjkwNS00ZmI1LTlkN2YtZDVmY2Y0ZDNkYmFl&lang=en-ca&country=CA&userCountry=CA&subdivision=CA-British%20Columbia&fixtureTypes=Standard&state=Latest&offerMapping=Filtered&offerCategories=Gridable&fixtureCategories=Gridable,NonGridable,Other&sportIds=7&competitionIds=6004&isPriceBoost=false&statisticsModes=None&skip=0&take=50&sortBy=Tags",
     markets: (fixtureId: number) =>
-      `https://www.sportsinteraction.com/cds-api/bettingoffer/fixture-view?x-bwin-accessid=OGQ2ZTg0MGYtYjkwNS00ZmI1LTlkN2YtZDVmY2Y0ZDNkYmFl&lang=en-ca&country=CA&userCountry=CA&subdivision=CA-British%20Columbia&offerMapping=All&scoreboardMode=Full&fixtureIds=${fixtureId}&state=Latest&includePrecreatedBetBuilder=true&supportVirtual=false&isBettingInsightsEnabled=false&useRegionalisedConfiguration=true&includeRelatedFixtures=false&statisticsModes=None&firstMarketGroupOnly=false`,
+      `https://www.sportsinteraction.com/cds-api/bettingoffer/fixture-view?x-bwin-accessid=OGQ2ZTg0MGYtYjkwNS00ZmI1LTlkN2YtZDVmY2Y0ZDNkYmFl&lang=en-ca&country=CA&userCountry=CA&subdivision=CA-British%20Columbia&offerMapping=All&scoreboardMode=Full&fixtureIds=19046728&state=Latest&includePrecreatedBetBuilder=true&supportVirtual=false&isBettingInsightsEnabled=false&useRegionalisedConfiguration=true&includeRelatedFixtures=false&statisticsModes=None&firstMarketGroupOnly=false`,
   },
   nhl: {
     fixtures:

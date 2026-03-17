@@ -241,9 +241,10 @@ export class SiaApiService {
   ): string | undefined => {
     const player = fixture.participants?.find(
       (participant: SiaFixtureParticipant) =>
-        participant.participantId === participantId,
+        participant.participantId === participantId ||
+        participant.id === participantId,
     );
-    return player?.name.short;
+    return player?.name.short ?? player?.name.value;
   };
 
   /** Maps a SIA market name string to our standardized prop type key (e.g. "- Points" -> "points"). */
