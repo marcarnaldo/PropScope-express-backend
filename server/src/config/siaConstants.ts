@@ -9,26 +9,26 @@
 
 export const PROP_MARKETS_SIAAPI = {
   NBA: [
-    ": Points",
-    ": Rebounds",
-    ": Assists",
-    "Three-pointers made",
-    "Total points, rebounds and assists",
-    "Total points and assists",
-    "Total points and rebounds",
-    "Total assists and rebounds",
+    "- Points",
+    "- Rebounds",
+    "- Assists",
+    "- Three Pointers",
+    ": Total points, rebounds and assists",
+    ": Total points and assists",
+    ": Total points and rebounds",
+    ": Total assists and rebounds",
   ],
 };
 
 export const PROP_TYPE_MAP = {
-  ": Points": "points",
-  ": Rebounds": "rebounds",
-  ": Assists": "assists",
-  "Three-pointers made": "threes",
-  "Total points, rebounds and assists": "points_rebounds_assists",
-  "Total points and assists": "points_assists",
-  "Total points and rebounds": "points_rebounds",
-  "Total assists and rebounds": "rebounds_assists",
+  "- Rebounds": "rebounds",
+  "- Assists": "assists",
+  "- Three Pointers": "threes",
+  "- Points": "points",
+  ": Total points, rebounds and assists": "points_rebounds_assists",
+  ": Total points and assists": "points_assists",
+  ": Total points and rebounds": "points_rebounds",
+  ": Total assists and rebounds": "rebounds_assists",
 };
 
 export const SIA_URLS = {

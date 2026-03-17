@@ -164,11 +164,14 @@ export class SiaApiService {
         SIA_URLS.nba.markets(fixtureId),
       );
 
-      const filteredMarket =
+      const filteredMarkets =
         specificFixture.optionMarkets?.filter(
           (market: SiaMarket) =>
-            // Check if the market has a templateCategory of "Player specials" because the ones that I want belongs here
-            market.templateCategory?.name?.value === "Player specials" &&
+            // For solo prop
+            (market.grouping?.detailed[0]?.displayType ===
+              "PlayerMilestoneOverUnder" ||
+              // for combo prop
+              market.templateCategory?.name?.value === "Player specials") &&
             // We must only get the ones with the same patterns as in the PROP_MARKETS_SIAAPI since that is all the over unders that I want
             PROP_MARKETS_SIAAPI.NBA.some((pattern) =>
               market.name.value.includes(pattern),
@@ -181,33 +184,37 @@ export class SiaApiService {
         props: {},
       };
 
-      filteredMarket.forEach((market: SiaMarket) => {
-        // This JSON is made up of player props so the market.id is the participant ID a.k.a the player's id.
-        const playerName = this.getPlayerShortName(fixture, market.player1Id);
+      filteredMarkets.forEach((market: SiaMarket) => {
+        // V1 (combos) has player1.short, V2 (single stats) needs lookup via fixtureParticipantId
+        const playerName =
+          market.player1?.short ??
+          this.getPlayerShortName(fixture, market.fixtureParticipantId!);
         if (!playerName) return;
 
         const line = parseFloat(market.attr);
 
-        // Example: Points, Rebound, etc.
         const propType = this.getPropType(market.name.value);
-        if (!propType) return; // Since not all players has the prop type I am looking for, we need to check if the prop type is null so we do not include it
+        if (!propType) return;
 
-        // Check if the player already exist in the entry. If not, then create an entry.
         if (!propsByPlayer.props[playerName]) {
           propsByPlayer.props[playerName] = {};
         }
 
+        // V1 uses totalsPrefix, V2 uses option.parameters.optionTypes[0]
         const overOdds = market.options.find(
-          (option: SiaMarketOption) => option.totalsPrefix === "Over",
+          (option: SiaMarketOption) =>
+            option.totalsPrefix === "Over" ||
+            option.parameters?.optionTypes?.[0] === "Over",
         )?.price.americanOdds;
 
         const underOdds = market.options.find(
-          (option: SiaMarketOption) => option.totalsPrefix === "Under",
+          (option: SiaMarketOption) =>
+            option.totalsPrefix === "Under" ||
+            option.parameters?.optionTypes?.[0] === "Under",
         )?.price.americanOdds;
 
         if (overOdds === undefined || underOdds === undefined) return;
 
-        // For each propType available to a player, we create an entry for it and fill it with odds of over and under
         propsByPlayer.props[playerName][propType] = {
           line,
           over: overOdds,
@@ -239,7 +246,7 @@ export class SiaApiService {
     return player?.name.short;
   };
 
-  /** Maps a SIA market name string to our standardized prop type key (e.g. ": Points" -> "points"). */
+  /** Maps a SIA market name string to our standardized prop type key (e.g. "- Points" -> "points"). */
   private getPropType = (marketName: string): string | null => {
     const match = Object.keys(PROP_TYPE_MAP).find((pattern) =>
       marketName.includes(pattern),

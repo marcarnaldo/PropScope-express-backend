@@ -30,17 +30,29 @@ export interface SiaFixture {
 }
 
 export interface SiaMarketOption {
-  totalsPrefix: string;
+  totalsPrefix?: string;
+  parameters?: {
+    optionTypes: string[];
+  };
   price: {
     americanOdds: number;
   };
 }
 
 export interface SiaMarket {
-  player1Id: number;
+  player1?: {
+    value: string;
+    short: string;
+  };
+  fixtureParticipantId?: number;
   attr: string;
   name: { value: string };
   templateCategory?: { name?: { value: string } };
+  grouping?: {
+    detailed: Array<{
+      displayType: string;
+    }>;
+  };
   options: SiaMarketOption[];
 }
 
