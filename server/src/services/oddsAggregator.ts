@@ -43,7 +43,6 @@ export const aggregateSiaAndFdOdds = async (
       fixtureId,
       homeTeam,
       awayTeam,
-      fixture,
     );
     if (!siaOdds) {
       logger.warn(

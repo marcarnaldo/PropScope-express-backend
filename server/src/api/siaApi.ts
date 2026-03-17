@@ -157,7 +157,6 @@ export class SiaApiService {
     fixtureId: number,
     homeTeam: string,
     awayTeam: string,
-    fixture: SiaFixture,
   ): Promise<PlayerPropsResponse> {
     try {
       const specificFixture = await this.getSpecificFixture(
@@ -188,7 +187,7 @@ export class SiaApiService {
         // V1 (combos) has player1.short, V2 (single stats) needs lookup via fixtureParticipantId
         const playerName =
           market.player1?.short ??
-          this.getPlayerShortName(fixture, market.fixtureParticipantId!);
+          this.getPlayerShortName(specificFixture, market.fixtureParticipantId!);
         if (!playerName) return;
 
         const line = parseFloat(market.attr);
